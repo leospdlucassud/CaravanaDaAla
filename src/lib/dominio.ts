@@ -13,7 +13,6 @@ import {
   NomesDeFamilia,
   Ordenanca,
   Organizacao,
-  Papel,
   RecomendacaoTipo,
   Sexo,
   SituacaoInscricao,
@@ -99,13 +98,6 @@ export const ROTULO_STATUS_CARAVANA: Record<StatusCaravana, string> = {
   CONFIRMADA: "Confirmada",
   REALIZADA: "Realizada",
   CANCELADA: "Cancelada",
-};
-
-export const ROTULO_PAPEL: Record<Papel, string> = {
-  ADMINISTRADOR: "Administrador",
-  ORGANIZADOR: "Organizador da caravana",
-  LIDER_ORGANIZACAO: "Líder de organização",
-  VISUALIZADOR: "Visualizador",
 };
 
 export const ROTULO_VINCULO: Record<TipoVinculo, string> = {

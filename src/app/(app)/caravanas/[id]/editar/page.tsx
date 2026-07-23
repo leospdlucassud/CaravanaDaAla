@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { usuarioAtual } from "@/lib/autorizacao";
-import { podeEditarCaravanaDe } from "@/lib/permissoes";
 import { FormularioDeCaravana } from "@/components/formulario-de-caravana";
 
 export const metadata: Metadata = { title: "Editar caravana" };
@@ -18,12 +16,9 @@ export default async function PaginaEditarCaravana({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ator = await usuarioAtual();
-  if (!ator) return null;
 
   const caravana = await prisma.caravana.findUnique({ where: { id } });
   if (!caravana) notFound();
-  if (!podeEditarCaravanaDe(ator, caravana)) redirect(`/caravanas/${id}`);
 
   const unidades = await prisma.unidade.findMany({
     orderBy: [{ ehPropria: "desc" }, { nome: "asc" }],
@@ -41,6 +36,7 @@ export default async function PaginaEditarCaravana({
           data: paraCampoDeData(caravana.data),
           templo: caravana.templo,
           unidadeOrganizadoraId: caravana.unidadeOrganizadoraId,
+          responsavel: caravana.responsavel ?? "",
           horaSaida: caravana.horaSaida ?? "",
           horaRetornoPrevista: caravana.horaRetornoPrevista ?? "",
           pontoEncontro: caravana.pontoEncontro ?? "",

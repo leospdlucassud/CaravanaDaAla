@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { filtroDeMembrosVisiveis, usuarioAtual } from "@/lib/autorizacao";
-import { podeEditarCaravanaDe } from "@/lib/permissoes";
 import { InscreverMembros } from "@/components/inscrever-membros";
 import { Button } from "@/components/ui/button";
 
@@ -16,8 +14,6 @@ export default async function PaginaDeInscricao({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ator = await usuarioAtual();
-  if (!ator) return null;
 
   const caravana = await prisma.caravana.findUnique({
     where: { id },
@@ -25,19 +21,17 @@ export default async function PaginaDeInscricao({
       id: true,
       titulo: true,
       capacidadeAssentos: true,
-      unidadeOrganizadoraId: true,
       inscricoes: { select: { membroId: true } },
       _count: { select: { inscricoes: { where: { situacao: "CONFIRMADA" } } } },
     },
   });
 
   if (!caravana) notFound();
-  if (!podeEditarCaravanaDe(ator, caravana)) redirect(`/caravanas/${id}`);
 
   const jaInscritos = new Set(caravana.inscricoes.map((i) => i.membroId));
 
   const membros = await prisma.membro.findMany({
-    where: { ...filtroDeMembrosVisiveis(ator), ativo: true },
+    where: { ativo: true },
     orderBy: { nomeCompleto: "asc" },
     select: {
       id: true,

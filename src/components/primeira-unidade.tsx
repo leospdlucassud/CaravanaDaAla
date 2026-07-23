@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { criarPrimeiraUnidade } from "@/app/acoes/importacao";
+import { criarUnidade } from "@/app/acoes/importacao";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ export function PrimeiraUnidade() {
     evento.preventDefault();
     iniciarTransicao(async () => {
       try {
-        const unidade = await criarPrimeiraUnidade({
+        const unidade = await criarUnidade({
           nome,
           estaca: estaca || null,
           tipo,

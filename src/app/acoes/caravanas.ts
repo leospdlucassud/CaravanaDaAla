@@ -4,13 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
-import {
-  SemPermissao,
-  exigirPodeEditarCaravana,
-  exigirUsuario,
-} from "@/lib/autorizacao";
-import { podeEditarCaravanaDe } from "@/lib/permissoes";
 import { aplicarCapacidade, renumerar } from "@/lib/fila";
 
 const horario = z
@@ -26,6 +21,7 @@ const esquemaDeCaravana = z.object({
   data: z.coerce.date(),
   templo: z.string().trim().min(2, "Informe o templo de destino."),
   unidadeOrganizadoraId: z.string().min(1),
+  responsavel: z.string().trim().max(120).nullable().optional(),
   horaSaida: horario,
   horaRetornoPrevista: horario,
   pontoEncontro: z.string().trim().max(200).nullable().optional(),
@@ -47,6 +43,7 @@ export type EntradaDeCaravana = z.input<typeof esquemaDeCaravana>;
 function paraDados(dados: z.output<typeof esquemaDeCaravana>) {
   return {
     ...dados,
+    responsavel: dados.responsavel ?? null,
     horaSaida: dados.horaSaida ?? null,
     horaRetornoPrevista: dados.horaRetornoPrevista ?? null,
     pontoEncontro: dados.pontoEncontro ?? null,
@@ -58,23 +55,15 @@ function paraDados(dados: z.output<typeof esquemaDeCaravana>) {
 
 export async function criarCaravana(entrada: EntradaDeCaravana) {
   const dados = esquemaDeCaravana.parse(entrada);
-  const ator = await exigirUsuario();
-
-  if (
-    !podeEditarCaravanaDe(ator, {
-      unidadeOrganizadoraId: dados.unidadeOrganizadoraId,
-    })
-  ) {
-    throw new SemPermissao();
-  }
+  const autor = await lerAutor();
 
   const caravana = await prisma.caravana.create({
-    data: { ...paraDados(dados), responsavelId: ator.id },
+    data: paraDados(dados),
     select: { id: true, titulo: true },
   });
 
   await registrarEvento({
-    ator,
+    autor,
     entidade: "Caravana",
     entidadeId: caravana.id,
     campo: "criacao",
@@ -87,7 +76,7 @@ export async function criarCaravana(entrada: EntradaDeCaravana) {
 
 export async function atualizarCaravana(id: string, entrada: EntradaDeCaravana) {
   const dados = esquemaDeCaravana.parse(entrada);
-  const { ator } = await exigirPodeEditarCaravana(id);
+  const autor = await lerAutor();
 
   const antes = await prisma.caravana.findUniqueOrThrow({
     where: { id },
@@ -95,6 +84,7 @@ export async function atualizarCaravana(id: string, entrada: EntradaDeCaravana) 
       titulo: true,
       data: true,
       templo: true,
+      responsavel: true,
       horaSaida: true,
       horaRetornoPrevista: true,
       pontoEncontro: true,
@@ -142,7 +132,7 @@ export async function atualizarCaravana(id: string, entrada: EntradaDeCaravana) 
   });
 
   await registrarAlteracoes({
-    ator,
+    autor,
     entidade: "Caravana",
     entidadeId: id,
     antes: antes as unknown as Record<string, unknown>,
@@ -162,23 +152,24 @@ export async function duplicarCaravana(
   id: string,
   entrada: { titulo: string; data: Date | string },
 ) {
-  const { ator, caravana } = await exigirPodeEditarCaravana(id);
+  const autor = await lerAutor();
 
   const original = await prisma.caravana.findUniqueOrThrow({
     where: { id },
     select: {
       templo: true,
+      unidadeOrganizadoraId: true,
+      responsavel: true,
       horaSaida: true,
       horaRetornoPrevista: true,
       pontoEncontro: true,
       capacidadeAssentos: true,
       valorPorPessoa: true,
       custoTotalTransporte: true,
-      observacoes: true,
       inscricoes: {
         where: { situacao: { in: ["CONFIRMADA", "FILA_ESPERA"] } },
         orderBy: [{ ordem: "asc" }, { posicaoFila: "asc" }],
-        select: { membroId: true, situacao: true, participacao: true },
+        select: { membroId: true, participacao: true },
       },
     },
   });
@@ -189,7 +180,8 @@ export async function duplicarCaravana(
         titulo: entrada.titulo,
         data: new Date(entrada.data),
         templo: original.templo,
-        unidadeOrganizadoraId: caravana.unidadeOrganizadoraId,
+        unidadeOrganizadoraId: original.unidadeOrganizadoraId,
+        responsavel: original.responsavel,
         horaSaida: original.horaSaida,
         horaRetornoPrevista: original.horaRetornoPrevista,
         pontoEncontro: original.pontoEncontro,
@@ -197,7 +189,6 @@ export async function duplicarCaravana(
         valorPorPessoa: original.valorPorPessoa,
         custoTotalTransporte: original.custoTotalTransporte,
         status: "PLANEJAMENTO",
-        responsavelId: ator.id,
       },
       select: { id: true },
     });
@@ -245,7 +236,7 @@ export async function duplicarCaravana(
   });
 
   await registrarEvento({
-    ator,
+    autor,
     entidade: "Caravana",
     entidadeId: nova.id,
     campo: "criacao",
@@ -257,8 +248,6 @@ export async function duplicarCaravana(
 }
 
 export async function recalcularPosicoes(caravanaId: string) {
-  await exigirPodeEditarCaravana(caravanaId);
-
   await prisma.$transaction(async (cliente) => {
     const inscricoes = await cliente.inscricao.findMany({
       where: { caravanaId },
@@ -283,5 +272,4 @@ export async function recalcularPosicoes(caravanaId: string) {
   });
 
   revalidatePath(`/caravanas/${caravanaId}`);
-  revalidatePath(`/caravanas/${caravanaId}/inscritos`);
 }

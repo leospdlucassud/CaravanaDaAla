@@ -4,9 +4,8 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { lerAutor } from "@/lib/autor";
 import { registrarEvento } from "@/lib/auditoria";
-import { SemPermissao, exigirUsuario } from "@/lib/autorizacao";
-import { podeImportarPlanilha } from "@/lib/permissoes";
 import { analisarPlanilha, type Celula, type LinhaImportada } from "@/lib/importacao";
 import {
   encontrarPossiveisDuplicatas,
@@ -54,11 +53,6 @@ export type PreviaDaImportacao = {
 export async function analisarArquivo(
   dadosDoFormulario: FormData,
 ): Promise<PreviaDaImportacao> {
-  const ator = await exigirUsuario();
-  if (!podeImportarPlanilha(ator)) {
-    throw new SemPermissao("Somente o administrador pode importar a planilha.");
-  }
-
   const arquivo = dadosDoFormulario.get("arquivo");
   if (!(arquivo instanceof File)) {
     throw new Error("Escolha um arquivo .xlsx para importar.");
@@ -188,11 +182,7 @@ export type ResultadoDaImportacao = {
 export async function confirmarImportacao(
   entrada: EntradaDaImportacao,
 ): Promise<ResultadoDaImportacao> {
-  const ator = await exigirUsuario();
-  if (!podeImportarPlanilha(ator)) {
-    throw new SemPermissao("Somente o administrador pode importar a planilha.");
-  }
-
+  const autor = await lerAutor();
   const dados = esquemaDaImportacao.parse(entrada);
   const aImportar = dados.linhas.filter((l) => l.incluir);
 
@@ -213,7 +203,7 @@ export async function confirmarImportacao(
           capacidadeAssentos: dados.caravana.capacidadeAssentos,
           unidadeOrganizadoraId: dados.caravana.unidadeOrganizadoraId,
           status: "PLANEJAMENTO",
-          responsavelId: ator.id,
+          responsavel: autor,
         },
         select: { id: true },
       });
@@ -303,7 +293,7 @@ export async function confirmarImportacao(
   );
 
   await registrarEvento({
-    ator,
+    autor,
     entidade: "Caravana",
     entidadeId: resultado.caravanaId,
     campo: "importacao",
@@ -316,15 +306,12 @@ export async function confirmarImportacao(
   return resultado;
 }
 
-/** Cria a unidade da instalação, quando ainda não existe nenhuma. */
-export async function criarPrimeiraUnidade(entrada: {
+/** Cria uma unidade — a primeira, ou outra ala numa caravana compartilhada. */
+export async function criarUnidade(entrada: {
   nome: string;
   estaca: string | null;
   tipo: "ALA" | "RAMO";
 }) {
-  const ator = await exigirUsuario();
-  if (!podeImportarPlanilha(ator)) throw new SemPermissao();
-
   const unidade = await prisma.unidade.create({
     data: {
       nome: entrada.nome.trim(),
@@ -335,14 +322,6 @@ export async function criarPrimeiraUnidade(entrada: {
     select: { id: true, nome: true },
   });
 
-  // Primeiro usuário sem unidade entra na que acabou de ser criada.
-  if (!ator.unidadeId) {
-    await prisma.user.update({
-      where: { id: ator.id },
-      data: { unidadeId: unidade.id },
-    });
-  }
-
-  revalidatePath("/importar");
+  revalidatePath("/", "layout");
   return unidade;
 }

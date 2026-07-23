@@ -3,14 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
-import {
-  SemPermissao,
-  exigirPodeEditarCaravana,
-  exigirPodeEditarInscricao,
-  exigirUsuario,
-} from "@/lib/autorizacao";
-import { podeEditarMembroDe } from "@/lib/permissoes";
 import {
   moverParaFila,
   promoverDaFila,
@@ -21,10 +15,12 @@ import {
 } from "@/lib/fila";
 
 /**
- * Campos editáveis pela lista, um a um.
+ * O app é de acesso aberto: quem abre o endereço edita. Não há papéis nem
+ * checagem de permissão — só validação do que está sendo gravado.
  *
- * Lista fechada de propósito: sem isso, um `data: entrada` deixaria qualquer
- * campo da inscrição ser sobrescrito por quem soubesse montar a requisição.
+ * A lista de campos editáveis abaixo continua fechada, e isso não é sobre
+ * confiança em quem usa: é para que uma requisição malformada (ou um bug de
+ * tela) não consiga escrever num campo que a interface não expõe.
  */
 const CAMPOS_EDITAVEIS = {
   participacao: z.enum(["ORDENANCA", "ACOMPANHANTE_JARDINS"]),
@@ -60,19 +56,26 @@ export async function atualizarCampoDaInscricao(entrada: {
   valor: unknown;
 }) {
   const esquema = CAMPOS_EDITAVEIS[entrada.campo];
-  if (!esquema) throw new SemPermissao("Campo não editável.");
+  if (!esquema) throw new Error("Campo não editável.");
 
   const valor = esquema.parse(entrada.valor);
-  const { ator, inscricao } = await exigirPodeEditarInscricao(entrada.inscricaoId);
+  const autor = await lerAutor();
 
   const antes = await prisma.inscricao.findUniqueOrThrow({
     where: { id: entrada.inscricaoId },
     select: {
       [entrada.campo]: true,
+      caravanaId: true,
       valorPago: true,
       caravana: { select: { valorPorPessoa: true } },
     } as Record<string, true>,
   });
+
+  const registro = antes as unknown as {
+    caravanaId: string;
+    valorPago: unknown;
+    caravana: { valorPorPessoa: unknown };
+  };
 
   const depois: Record<string, unknown> = { [entrada.campo]: valor };
 
@@ -80,11 +83,6 @@ export async function atualizarCampoDaInscricao(entrada: {
   // Assumimos o valor por pessoa da caravana, que a tela de financeiro poderá
   // ajustar depois quando alguém pagar valor diferente.
   if (entrada.campo === "pagamentoStatus") {
-    const registro = antes as unknown as {
-      valorPago: unknown;
-      caravana: { valorPorPessoa: unknown };
-    };
-
     if (valor === "PAGO" && registro.valorPago == null) {
       depois.valorPago = registro.caravana.valorPorPessoa ?? null;
     } else if (valor === "PENDENTE" || valor === "ISENTO") {
@@ -98,15 +96,14 @@ export async function atualizarCampoDaInscricao(entrada: {
   });
 
   await registrarAlteracoes({
-    ator,
+    autor,
     entidade: "Inscricao",
     entidadeId: entrada.inscricaoId,
     antes: antes as Record<string, unknown>,
     depois,
   });
 
-  revalidatePath(`/caravanas/${inscricao.caravanaId}`);
-  revalidatePath(`/caravanas/${inscricao.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${registro.caravanaId}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -116,8 +113,10 @@ export async function atualizarCampoDaInscricao(entrada: {
 // inteiras — ninguém digita número de fila.
 // ---------------------------------------------------------------------------
 
+type ClienteDeTransacao = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 async function carregarListaParaCalculo(
-  cliente: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  cliente: ClienteDeTransacao,
   caravanaId: string,
 ): Promise<{ itens: ItemDaLista[]; capacidade: number }> {
   const caravana = await cliente.caravana.findUniqueOrThrow({
@@ -134,7 +133,7 @@ async function carregarListaParaCalculo(
 }
 
 async function gravarPosicoes(
-  cliente: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  cliente: ClienteDeTransacao,
   posicoes: ReturnType<typeof renumerar>,
 ) {
   await Promise.all(
@@ -147,18 +146,26 @@ async function gravarPosicoes(
   );
 }
 
+async function caravanaDaInscricao(inscricaoId: string): Promise<string> {
+  const inscricao = await prisma.inscricao.findUnique({
+    where: { id: inscricaoId },
+    select: { caravanaId: true },
+  });
+  if (!inscricao) throw new Error("Inscrição não encontrada.");
+  return inscricao.caravanaId;
+}
+
 export async function inscreverMembro(entrada: {
   caravanaId: string;
   membroId: string;
 }) {
-  const { ator } = await exigirPodeEditarCaravana(entrada.caravanaId);
+  const autor = await lerAutor();
 
   const membro = await prisma.membro.findUnique({
     where: { id: entrada.membroId },
-    select: { unidadeId: true, organizacao: true, nomeCompleto: true },
+    select: { nomeCompleto: true },
   });
-  if (!membro) throw new SemPermissao("Membro não encontrado.");
-  if (!podeEditarMembroDe(ator, membro)) throw new SemPermissao();
+  if (!membro) throw new Error("Membro não encontrado.");
 
   const situacao = await prisma.$transaction(async (cliente) => {
     const { itens, capacidade } = await carregarListaParaCalculo(
@@ -192,7 +199,7 @@ export async function inscreverMembro(entrada: {
     await gravarPosicoes(cliente, posicoes);
 
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: criada.id,
       campo: "criacao",
@@ -204,19 +211,20 @@ export async function inscreverMembro(entrada: {
   });
 
   revalidatePath(`/caravanas/${entrada.caravanaId}`);
-  revalidatePath(`/caravanas/${entrada.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${entrada.caravanaId}/inscrever`);
 
   return { situacao };
 }
 
 export async function promoverInscricao(inscricaoId: string) {
-  const { ator, inscricao } = await exigirPodeEditarInscricao(inscricaoId);
+  const autor = await lerAutor();
+  const caravanaId = await caravanaDaInscricao(inscricaoId);
 
   await prisma.$transaction(async (cliente) => {
-    const { itens } = await carregarListaParaCalculo(cliente, inscricao.caravanaId);
+    const { itens } = await carregarListaParaCalculo(cliente, caravanaId);
     await gravarPosicoes(cliente, promoverDaFila(itens, inscricaoId));
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: inscricaoId,
       campo: "situacao",
@@ -225,18 +233,18 @@ export async function promoverInscricao(inscricaoId: string) {
     });
   });
 
-  revalidatePath(`/caravanas/${inscricao.caravanaId}`);
-  revalidatePath(`/caravanas/${inscricao.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${caravanaId}`);
 }
 
 export async function enviarParaFila(inscricaoId: string) {
-  const { ator, inscricao } = await exigirPodeEditarInscricao(inscricaoId);
+  const autor = await lerAutor();
+  const caravanaId = await caravanaDaInscricao(inscricaoId);
 
   await prisma.$transaction(async (cliente) => {
-    const { itens } = await carregarListaParaCalculo(cliente, inscricao.caravanaId);
+    const { itens } = await carregarListaParaCalculo(cliente, caravanaId);
     await gravarPosicoes(cliente, moverParaFila(itens, inscricaoId));
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: inscricaoId,
       campo: "situacao",
@@ -245,8 +253,7 @@ export async function enviarParaFila(inscricaoId: string) {
     });
   });
 
-  revalidatePath(`/caravanas/${inscricao.caravanaId}`);
-  revalidatePath(`/caravanas/${inscricao.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${caravanaId}`);
 }
 
 /**
@@ -254,13 +261,11 @@ export async function enviarParaFila(inscricaoId: string) {
  * para a tela poder avisar que essa pessoa precisa ser comunicada.
  */
 export async function registrarDesistenciaDeInscricao(inscricaoId: string) {
-  const { ator, inscricao } = await exigirPodeEditarInscricao(inscricaoId);
+  const autor = await lerAutor();
+  const caravanaId = await caravanaDaInscricao(inscricaoId);
 
   const promovido = await prisma.$transaction(async (cliente) => {
-    const { itens, capacidade } = await carregarListaParaCalculo(
-      cliente,
-      inscricao.caravanaId,
-    );
+    const { itens, capacidade } = await carregarListaParaCalculo(cliente, caravanaId);
 
     const { posicoes, promovidoId } = registrarDesistencia(
       itens,
@@ -270,7 +275,7 @@ export async function registrarDesistenciaDeInscricao(inscricaoId: string) {
     await gravarPosicoes(cliente, posicoes);
 
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: inscricaoId,
       campo: "situacao",
@@ -281,7 +286,7 @@ export async function registrarDesistenciaDeInscricao(inscricaoId: string) {
     if (!promovidoId) return null;
 
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: promovidoId,
       campo: "situacao",
@@ -295,24 +300,21 @@ export async function registrarDesistenciaDeInscricao(inscricaoId: string) {
     });
   });
 
-  revalidatePath(`/caravanas/${inscricao.caravanaId}`);
-  revalidatePath(`/caravanas/${inscricao.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${caravanaId}`);
 
-  return {
-    promovido: promovido?.membro ?? null,
-  };
+  return { promovido: promovido?.membro ?? null };
 }
 
 export async function removerInscricao(inscricaoId: string) {
-  const { ator, inscricao } = await exigirPodeEditarInscricao(inscricaoId);
-  await exigirUsuario();
+  const autor = await lerAutor();
+  const caravanaId = await caravanaDaInscricao(inscricaoId);
 
   await prisma.$transaction(async (cliente) => {
     await cliente.inscricao.delete({ where: { id: inscricaoId } });
-    const { itens } = await carregarListaParaCalculo(cliente, inscricao.caravanaId);
+    const { itens } = await carregarListaParaCalculo(cliente, caravanaId);
     await gravarPosicoes(cliente, renumerar(itens));
     await registrarEvento({
-      ator,
+      autor,
       entidade: "Inscricao",
       entidadeId: inscricaoId,
       campo: "remocao",
@@ -321,6 +323,5 @@ export async function removerInscricao(inscricaoId: string) {
     });
   });
 
-  revalidatePath(`/caravanas/${inscricao.caravanaId}`);
-  revalidatePath(`/caravanas/${inscricao.caravanaId}/inscritos`);
+  revalidatePath(`/caravanas/${caravanaId}`);
 }

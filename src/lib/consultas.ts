@@ -26,7 +26,6 @@ export async function carregarInscritos(caravanaId: string) {
     where: { id: caravanaId },
     include: {
       unidadeOrganizadora: { select: { id: true, nome: true } },
-      responsavel: { select: { nome: true, email: true } },
     },
   });
 

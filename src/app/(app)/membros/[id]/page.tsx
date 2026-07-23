@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { usuarioAtual } from "@/lib/autorizacao";
-import { podeEditarMembroDe, podeVerMembroDe } from "@/lib/permissoes";
 import { ROTULO_ORDENANCA, ROTULO_SITUACAO } from "@/lib/dominio";
 import { FormularioDeMembro } from "@/components/formulario-de-membro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +19,6 @@ export default async function PaginaDoMembro({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ator = await usuarioAtual();
-  if (!ator) return null;
 
   const membro = await prisma.membro.findUnique({
     where: { id },
@@ -38,14 +34,11 @@ export default async function PaginaDoMembro({
   });
 
   if (!membro) notFound();
-  if (!podeVerMembroDe(ator, membro)) redirect("/membros");
 
   const unidades = await prisma.unidade.findMany({
     orderBy: [{ ehPropria: "desc" }, { nome: "asc" }],
     select: { id: true, nome: true },
   });
-
-  const editavel = podeEditarMembroDe(ator, membro);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -57,33 +50,25 @@ export default async function PaginaDoMembro({
         </p>
       </div>
 
-      {editavel ? (
-        <FormularioDeMembro
-          unidades={unidades}
-          membroId={membro.id}
-          valoresIniciais={{
-            nomeCompleto: membro.nomeCompleto,
-            apelido: membro.apelido ?? "",
-            unidadeId: membro.unidadeId,
-            organizacao: membro.organizacao ?? "",
-            tipoVinculo: membro.tipoVinculo,
-            sexo: membro.sexo ?? "",
-            anoNascimento: membro.anoNascimento?.toString() ?? "",
-            telefone: membro.telefone ?? "",
-            recemConverso: membro.recemConverso,
-            ehInvestido: membro.ehInvestido,
-            recomendacaoTipo: membro.recomendacaoTipo,
-            recomendacaoValidaAte: paraCampoDeData(membro.recomendacaoValidaAte),
-            observacoes: membro.observacoes ?? "",
-          }}
-        />
-      ) : (
-        <Card>
-          <CardContent className="text-muted-foreground p-4">
-            Você tem acesso apenas de leitura a esta ficha.
-          </CardContent>
-        </Card>
-      )}
+      <FormularioDeMembro
+        unidades={unidades}
+        membroId={membro.id}
+        valoresIniciais={{
+          nomeCompleto: membro.nomeCompleto,
+          apelido: membro.apelido ?? "",
+          unidadeId: membro.unidadeId,
+          organizacao: membro.organizacao ?? "",
+          tipoVinculo: membro.tipoVinculo,
+          sexo: membro.sexo ?? "",
+          anoNascimento: membro.anoNascimento?.toString() ?? "",
+          telefone: membro.telefone ?? "",
+          recemConverso: membro.recemConverso,
+          ehInvestido: membro.ehInvestido,
+          recomendacaoTipo: membro.recomendacaoTipo,
+          recomendacaoValidaAte: paraCampoDeData(membro.recomendacaoValidaAte),
+          observacoes: membro.observacoes ?? "",
+        }}
+      />
 
       <Card>
         <CardHeader>

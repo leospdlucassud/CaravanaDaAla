@@ -3,13 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
-import {
-  SemPermissao,
-  exigirPodeEditarMembro,
-  exigirUsuario,
-} from "@/lib/autorizacao";
-import { podeAnonimizarMembro, podeEditarMembroDe } from "@/lib/permissoes";
 import { normalizarNome } from "@/lib/normalizar";
 
 const ANO_ATUAL = new Date().getFullYear();
@@ -24,13 +19,7 @@ const esquemaDeMembro = z.object({
     .optional(),
   tipoVinculo: z.enum(["MEMBRO", "PESQUISADOR", "CONVIDADO"]).default("MEMBRO"),
   sexo: z.enum(["MASCULINO", "FEMININO"]).nullable().optional(),
-  anoNascimento: z
-    .number()
-    .int()
-    .min(1900)
-    .max(ANO_ATUAL)
-    .nullable()
-    .optional(),
+  anoNascimento: z.number().int().min(1900).max(ANO_ATUAL).nullable().optional(),
   telefone: z.string().trim().max(30).nullable().optional(),
   recemConverso: z.boolean().default(false),
   ehInvestido: z.boolean().default(false),
@@ -43,34 +32,30 @@ const esquemaDeMembro = z.object({
 
 export type EntradaDeMembro = z.input<typeof esquemaDeMembro>;
 
-export async function criarMembro(entrada: EntradaDeMembro) {
-  const dados = esquemaDeMembro.parse(entrada);
-  const ator = await exigirUsuario();
-
-  if (!podeEditarMembroDe(ator, {
-    unidadeId: dados.unidadeId,
+function normalizarOpcionais(dados: z.output<typeof esquemaDeMembro>) {
+  return {
+    ...dados,
+    apelido: dados.apelido ?? null,
     organizacao: dados.organizacao ?? null,
-  })) {
-    throw new SemPermissao();
-  }
+    sexo: dados.sexo ?? null,
+    anoNascimento: dados.anoNascimento ?? null,
+    telefone: dados.telefone ?? null,
+    observacoes: dados.observacoes ?? null,
+    recomendacaoValidaAte: dados.recomendacaoValidaAte ?? null,
+  };
+}
+
+export async function criarMembro(entrada: EntradaDeMembro) {
+  const dados = normalizarOpcionais(esquemaDeMembro.parse(entrada));
+  const autor = await lerAutor();
 
   const membro = await prisma.membro.create({
-    data: {
-      ...dados,
-      apelido: dados.apelido ?? null,
-      organizacao: dados.organizacao ?? null,
-      sexo: dados.sexo ?? null,
-      anoNascimento: dados.anoNascimento ?? null,
-      telefone: dados.telefone ?? null,
-      observacoes: dados.observacoes ?? null,
-      recomendacaoValidaAte: dados.recomendacaoValidaAte ?? null,
-      nomeNormalizado: normalizarNome(dados.nomeCompleto),
-    },
+    data: { ...dados, nomeNormalizado: normalizarNome(dados.nomeCompleto) },
     select: { id: true, nomeCompleto: true },
   });
 
   await registrarEvento({
-    ator,
+    autor,
     entidade: "Membro",
     entidadeId: membro.id,
     campo: "criacao",
@@ -82,18 +67,8 @@ export async function criarMembro(entrada: EntradaDeMembro) {
 }
 
 export async function atualizarMembro(id: string, entrada: EntradaDeMembro) {
-  const dados = esquemaDeMembro.parse(entrada);
-  const { ator } = await exigirPodeEditarMembro(id);
-
-  // Mudar de unidade/organização não pode ser rota de fuga do próprio escopo.
-  if (!podeEditarMembroDe(ator, {
-    unidadeId: dados.unidadeId,
-    organizacao: dados.organizacao ?? null,
-  })) {
-    throw new SemPermissao(
-      "Você não pode mover um membro para fora do seu escopo de acesso.",
-    );
-  }
+  const dados = normalizarOpcionais(esquemaDeMembro.parse(entrada));
+  const autor = await lerAutor();
 
   const antes = await prisma.membro.findUniqueOrThrow({
     where: { id },
@@ -114,28 +89,17 @@ export async function atualizarMembro(id: string, entrada: EntradaDeMembro) {
     },
   });
 
-  const depois = {
-    ...dados,
-    apelido: dados.apelido ?? null,
-    organizacao: dados.organizacao ?? null,
-    sexo: dados.sexo ?? null,
-    anoNascimento: dados.anoNascimento ?? null,
-    telefone: dados.telefone ?? null,
-    observacoes: dados.observacoes ?? null,
-    recomendacaoValidaAte: dados.recomendacaoValidaAte ?? null,
-  };
-
   await prisma.membro.update({
     where: { id },
-    data: { ...depois, nomeNormalizado: normalizarNome(dados.nomeCompleto) },
+    data: { ...dados, nomeNormalizado: normalizarNome(dados.nomeCompleto) },
   });
 
   await registrarAlteracoes({
-    ator,
+    autor,
     entidade: "Membro",
     entidadeId: id,
     antes,
-    depois,
+    depois: dados,
   });
 
   revalidatePath("/membros");
@@ -147,10 +111,7 @@ export async function atualizarMembro(id: string, entrada: EntradaDeMembro) {
  * registro da unidade. O membro vira "Registro anonimizado".
  */
 export async function anonimizarMembro(id: string) {
-  const ator = await exigirUsuario();
-  if (!podeAnonimizarMembro(ator)) {
-    throw new SemPermissao("Somente o administrador pode anonimizar um membro.");
-  }
+  const autor = await lerAutor();
 
   await prisma.membro.update({
     where: { id },
@@ -172,7 +133,7 @@ export async function anonimizarMembro(id: string) {
   });
 
   await registrarEvento({
-    ator,
+    autor,
     entidade: "Membro",
     entidadeId: id,
     campo: "anonimizacao",

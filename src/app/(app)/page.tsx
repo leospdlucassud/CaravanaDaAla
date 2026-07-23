@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, MapPin, Plus, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { usuarioAtual } from "@/lib/autorizacao";
-import { podeOrganizar } from "@/lib/permissoes";
 import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +17,6 @@ function formatarData(data: Date) {
 }
 
 export default async function PaginaDeCaravanas() {
-  const ator = await usuarioAtual();
-  if (!ator) return null;
-
   const caravanas = await prisma.caravana.findMany({
     orderBy: { data: "desc" },
     include: {
@@ -34,25 +29,21 @@ export default async function PaginaDeCaravanas() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Caravanas</h1>
-        {podeOrganizar(ator) ? (
-          <Button asChild className="min-h-11">
-            <Link href="/caravanas/nova">
-              <Plus className="size-4" aria-hidden="true" />
-              Nova caravana
-            </Link>
-          </Button>
-        ) : null}
+        <Button asChild className="min-h-11">
+          <Link href="/caravanas/nova">
+            <Plus className="size-4" aria-hidden="true" />
+            Nova caravana
+          </Link>
+        </Button>
       </div>
 
       {caravanas.length === 0 ? (
         <Card>
           <CardContent className="text-muted-foreground py-12 text-center">
             <p className="mb-4">Nenhuma caravana cadastrada ainda.</p>
-            {podeOrganizar(ator) ? (
-              <Button asChild variant="outline" className="min-h-11">
-                <Link href="/caravanas/nova">Criar a primeira caravana</Link>
-              </Button>
-            ) : null}
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/caravanas/nova">Criar a primeira caravana</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (

@@ -31,6 +31,32 @@ mostra um **aviso**. Quem decide é o bispo.
 
 ---
 
+## Acesso: não há login
+
+Por decisão de projeto, o app **não tem contas, senhas nem login**. Quem abre o
+endereço usa e edita tudo. Isso remove a maior fonte de atrito para quem não é
+técnico — não há senha para esquecer, nem convite para administrar.
+
+**O que isso significa, com todas as letras:** publicado na internet, qualquer
+pessoa que tenha o endereço vê nomes de membros, telefones e situação de
+recomendação, e pode alterar qualquer coisa. O endereço tende a circular: basta
+alguém encaminhar o link num grupo. Não há como saber quem entrou.
+
+Três atenuantes, que ajudam mas não resolvem:
+
+- As páginas pedem para não serem indexadas (`noindex`), então o app não deve
+  aparecer no Google. Isso depende do buscador respeitar o pedido.
+- O app pergunta, uma vez, **quem está usando** — é opcional, não barra
+  ninguém, e serve só para o histórico não ficar todo anônimo.
+- Todo o resto da proteção de dados continua: nada sobre dignidade ou entrevista
+  é armazenado, e um membro pode ser anonimizado.
+
+Se um dia isso incomodar, o caminho mais barato é uma **senha única da ala** —
+uma palavra combinada, digitada uma vez por aparelho, sem cadastro nem e-mail.
+São poucas linhas de código, e não muda nada de como o app é usado no dia a dia.
+
+---
+
 ## Como colocar para funcionar
 
 Você precisa de três coisas gratuitas: **Node.js**, uma conta no **Neon** (o
@@ -79,21 +105,20 @@ No Windows, pelo PowerShell:
 Copy-Item .env.example .env
 ```
 
-Abra o `.env` e preencha:
+Abra o `.env` e preencha só isto:
 
 - `DATABASE_URL` e `DIRECT_URL` — as duas strings do Neon.
-- `AUTH_SECRET` — gere um valor rodando `npx auth secret`.
-- `ADMIN_EMAILS` — **o seu e-mail**. Quem estiver aqui entra como administrador.
 - `SEED_UNIDADE_NOME` — o nome da sua ala ou ramo (opcional; dá para cadastrar
   pela tela depois).
 
-O `AUTH_RESEND_KEY` pode ficar vazio por enquanto — veja a seção sobre login.
-
-### 5. Criar as tabelas e liberar o primeiro acesso
+### 5. Criar as tabelas
 
 ```bash
 npm run db:aplicar
 ```
+
+O passo abaixo é opcional — só cria a unidade a partir do `.env`, o que a tela
+do app também faz:
 
 ```bash
 npm run db:seed
@@ -105,41 +130,7 @@ npm run db:seed
 npm run dev
 ```
 
-Abra <http://localhost:3000>.
-
----
-
-## Como funciona o login
-
-Não há senha. Você digita o e-mail e recebe um **link de acesso**. Clicou,
-entrou. É de propósito: senha é a coisa que mais dá problema com quem não é
-técnico, e link mágico elimina senha fraca, senha esquecida e senha repetida.
-
-**No seu computador, sem configurar e-mail:** o link aparece **no terminal**
-onde você rodou `npm run dev`, num quadro fácil de achar. É só copiar e colar no
-navegador. Isso serve para testar sem depender de nada externo.
-
-**Em produção, o envio de e-mail é obrigatório** — senão ninguém consegue
-entrar. Crie uma conta gratuita no [Resend](https://resend.com), gere uma chave
-de API e coloque em `AUTH_RESEND_KEY`. Enquanto você não verificar um domínio
-próprio, use `onboarding@resend.dev` como remetente.
-
-### Quem pode o quê
-
-| Papel | O que faz |
-|---|---|
-| **Administrador** | Tudo: caravanas, membros, importação, papéis. Bispado e secretário. |
-| **Organizador da caravana** | Cria e edita caravanas da própria unidade, e todas as inscrições. |
-| **Líder de organização** | Vê e edita apenas os membros da própria organização. |
-| **Visualizador** | Só leitura. |
-
-Duas regras que valem a pena conhecer:
-
-- Um **líder sem organização definida não vê ninguém**. É de propósito: na
-  dúvida, o sistema fecha, não abre.
-- Numa **caravana compartilhada com outra ala**, a situação de recomendação dos
-  membros da outra unidade **não é exibida**. Quem organiza precisa saber que a
-  pessoa tem assento, não a vida dela.
+Abra <http://localhost:3000>. Não há tela de login: você já entra no app.
 
 ---
 
@@ -176,16 +167,17 @@ fichas.
 
 1. Suba o projeto para um repositório no GitHub.
 2. Na Vercel, **Add New → Project** e escolha esse repositório.
-3. Em **Environment Variables**, copie as mesmas variáveis do seu `.env`, com
-   duas diferenças:
-   - `AUTH_URL` deve ser o endereço público (`https://...`);
-   - `AUTH_SECRET` deve ser **um valor novo**, diferente do que você usa no seu
-     computador.
+3. Em **Environment Variables**, copie `DATABASE_URL` e `DIRECT_URL` do seu
+   `.env`.
 4. Publique. Depois, aplique as migrações apontando para o banco de produção:
 
 ```bash
 npm run db:aplicar
 ```
+
+O endereço que a Vercel gerar é público e sem senha — trate o link como se
+fosse a própria lista: quem o tiver, entra. Vale combinar com o bispado quem
+recebe e evitar publicá-lo em grupos grandes.
 
 ---
 
@@ -198,7 +190,7 @@ npm run db:aplicar
 | `npm run teste` | Roda os testes das regras de negócio. |
 | `npm run verificar` | Confere os tipos, sem gerar nada. |
 | `npm run db:aplicar` | Cria/atualiza as tabelas do banco. |
-| `npm run db:seed` | Cria a unidade e libera os administradores. |
+| `npm run db:seed` | Cria a unidade a partir do `.env` (opcional). |
 | `npm run db:studio` | Abre uma tela para olhar o banco direto. |
 
 ---
@@ -209,30 +201,30 @@ npm run db:aplicar
 prisma/schema.prisma        modelo de dados, com os porquês nos comentários
 src/lib/dominio.ts          regras do Manual Geral (recomendação, idade, agendamento)
 src/lib/fila.ts             capacidade do ônibus e fila de espera
-src/lib/permissoes.ts       quem pode o quê — decisões puras, testáveis
-src/lib/autorizacao.ts      as mesmas decisões, aplicadas contra o banco
 src/lib/importacao.ts       tradução da planilha para o modelo do app
+src/lib/autor.ts            quem declarou estar usando (cookie, não é login)
 src/app/acoes/              Server Actions (tudo que grava passa por aqui)
-src/app/(app)/              telas de quem está logado
+src/app/(app)/              telas do app
 ```
 
-Quatro módulos — `dominio`, `fila`, `permissoes`, `importacao` — são **puros**:
-não tocam banco nem rede. É por isso que dá para testá-los inteiros em segundos,
-e é neles que mora a lógica que não pode errar.
+Três módulos — `dominio`, `fila` e `importacao` — são **puros**: não tocam banco
+nem rede. É por isso que dá para testá-los inteiros em segundos, e é neles que
+mora a lógica que não pode errar.
 
 ### Se você for mexer no código
 
 - **A ordem da fila nunca é digitada.** Quem mexe na lista chama uma função de
   `fila.ts`, que devolve a lista inteira renumerada, e grava tudo dentro de uma
   transação. Foi a numeração manual que produziu a fila furada da planilha.
-- **Toda gravação passa por uma Server Action** que confere permissão contra o
-  banco. O `proxy.ts` só checa "está logado?" — ele roda no Edge e não alcança o
-  Postgres.
+- **Toda gravação passa por uma Server Action.** Não há checagem de permissão —
+  o app é aberto — mas continua havendo validação com Zod de tudo que entra.
 - **Os campos editáveis são uma lista fechada** em `src/app/acoes/inscricoes.ts`.
-  Sem isso, quem soubesse montar uma requisição poderia sobrescrever qualquer
-  campo da inscrição.
+  Isso não é sobre confiar em quem usa: é para uma requisição malformada, ou um
+  bug de tela, não conseguir escrever num campo que a interface não expõe.
 - **Nada de unidade fixada em código.** A ala é um registro no banco, e o mesmo
   app serve qualquer unidade.
+- **`autor` não é identidade.** É um nome digitado à mão, guardado em cookie,
+  sem verificação. Nunca use esse campo para decidir o que alguém pode fazer.
 
 ---
 
@@ -266,8 +258,12 @@ As validações seguem o Manual Geral e o site da Igreja:
 
 ## Privacidade
 
-- Os dados ficam no seu banco, na sua conta do Neon. Não há página pública.
-- Cada alteração fica registrada com quem fez e quando.
+- Os dados ficam no seu banco, na sua conta do Neon.
+- **O app não tem login** — veja a seção "Acesso" no início. Quem tiver o
+  endereço vê e edita tudo. É uma escolha consciente, e o principal risco de
+  privacidade deste projeto.
+- Cada alteração fica registrada com data e hora, e com o nome que a pessoa
+  declarou — que não é verificado.
 - Um membro pode ser **anonimizado** (LGPD): os dados pessoais são apagados e o
   histórico de participação da unidade é preservado.
 - O app não pede, não guarda e não oferece campo para motivo de indignidade nem

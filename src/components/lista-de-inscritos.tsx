@@ -40,9 +40,6 @@ export type InscritoSerializado = {
   agendamentoStatus: StatusSimples | null;
   nomesDeFamilia: NomesDeFamilia | null;
   pagamentoStatus: StatusPagamento;
-  podeEditar: boolean;
-  /** Membro de outra unidade: status de dignidade não é exibido. */
-  sensivel: boolean;
   avisos: Aviso[];
   membro: {
     id: string;
@@ -125,7 +122,6 @@ function ChipsDaInscricao({ inscrito }: { inscrito: InscritoSerializado }) {
       });
     };
 
-  const soLeitura = !inscrito.podeEditar;
   const nosJardins = inscrito.participacao === "ACOMPANHANTE_JARDINS";
 
   return (
@@ -141,33 +137,20 @@ function ChipsDaInscricao({ inscrito }: { inscrito: InscritoSerializado }) {
             valor={inscrito.ordenanca}
             opcoes={OPCOES_ORDENANCA}
             aoMudar={salvar<Ordenanca | null>("ordenanca")}
-            desabilitado={soLeitura}
           />
 
-          {inscrito.sensivel ? (
-            <Badge
-              variant="outline"
-              className="text-muted-foreground min-h-11 rounded-full px-3"
-              title="Membro de outra unidade: a situação de recomendação fica com a liderança da unidade dele."
-            >
-              Recomendação: com a outra unidade
-            </Badge>
-          ) : (
-            <ChipDeStatus
-              rotuloDoCampo="Recomendação"
-              valor={inscrito.recomendacaoStatus}
-              opcoes={OPCOES_RECOMENDACAO}
-              aoMudar={salvar<StatusRecomendacao | null>("recomendacaoStatus")}
-              desabilitado={soLeitura}
-            />
-          )}
+          <ChipDeStatus
+            rotuloDoCampo="Recomendação"
+            valor={inscrito.recomendacaoStatus}
+            opcoes={OPCOES_RECOMENDACAO}
+            aoMudar={salvar<StatusRecomendacao | null>("recomendacaoStatus")}
+          />
 
           <ChipDeStatus
             rotuloDoCampo="Agendamento"
             valor={inscrito.agendamentoStatus}
             opcoes={OPCOES_AGENDAMENTO}
             aoMudar={salvar<StatusSimples | null>("agendamentoStatus")}
-            desabilitado={soLeitura}
           />
 
           <ChipDeStatus
@@ -175,7 +158,6 @@ function ChipsDaInscricao({ inscrito }: { inscrito: InscritoSerializado }) {
             valor={inscrito.nomesDeFamilia}
             opcoes={OPCOES_NOMES}
             aoMudar={salvar<NomesDeFamilia | null>("nomesDeFamilia")}
-            desabilitado={soLeitura}
           />
         </>
       )}
@@ -185,7 +167,6 @@ function ChipsDaInscricao({ inscrito }: { inscrito: InscritoSerializado }) {
         valor={inscrito.pagamentoStatus}
         opcoes={OPCOES_PAGAMENTO}
         aoMudar={salvar<StatusPagamento>("pagamentoStatus")}
-        desabilitado={soLeitura}
       />
     </div>
   );

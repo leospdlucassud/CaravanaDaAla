@@ -1,14 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { usuarioAtual } from "@/lib/autorizacao";
-import {
-  COOKIE_ESCALA,
-  COOKIE_TEMA,
-  ESCALAS_DE_FONTE,
-} from "@/lib/preferencias";
+import { gravarAutor } from "@/lib/autor";
+import { COOKIE_ESCALA, COOKIE_TEMA, ESCALAS_DE_FONTE } from "@/lib/preferencias";
 
 const esquema = z.object({
   tema: z.enum(["CLARO", "ESCURO", "SISTEMA"]).optional(),
@@ -23,9 +19,8 @@ const esquema = z.object({
 const UM_ANO = 60 * 60 * 24 * 365;
 
 /**
- * Grava no cookie (para o servidor renderizar certo já na próxima navegação) e,
- * se houver usuário logado, também no banco — assim a preferência acompanha a
- * pessoa em qualquer aparelho.
+ * Sem contas, as preferências vivem só no cookie do aparelho. Quem abrir de
+ * outro celular começa no padrão — é o preço de não ter login, e é barato.
  */
 export async function salvarPreferencias(entrada: {
   tema?: "CLARO" | "ESCURO" | "SISTEMA";
@@ -44,15 +39,10 @@ export async function salvarPreferencias(entrada: {
       path: "/",
     });
   }
+}
 
-  const ator = await usuarioAtual();
-  if (ator) {
-    await prisma.user.update({
-      where: { id: ator.id },
-      data: {
-        ...(dados.tema ? { tema: dados.tema } : {}),
-        ...(dados.escalaFonte ? { escalaFonte: dados.escalaFonte } : {}),
-      },
-    });
-  }
+/** Nome de quem está mexendo, para o histórico não ficar anônimo. */
+export async function salvarAutor(nome: string) {
+  await gravarAutor(nome);
+  revalidatePath("/", "layout");
 }

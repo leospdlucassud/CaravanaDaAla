@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import type { Ator } from "@/lib/permissoes";
 
 type PrismaOuTransacao = Pick<typeof prisma, "registroAuditoria">;
 
@@ -13,18 +12,18 @@ function paraTexto(valor: unknown): string | null {
 /**
  * Registra somente os campos que realmente mudaram.
  *
- * Guardamos o e-mail junto do id: se o usuário for removido um dia, o histórico
- * continua dizendo quem fez o quê.
+ * `autor` é o nome que a pessoa declarou no app, sem verificação nenhuma — o
+ * app não tem login. Nulo quando ninguém se identificou.
  */
 export async function registrarAlteracoes({
-  ator,
+  autor,
   entidade,
   entidadeId,
   antes,
   depois,
   cliente = prisma,
 }: {
-  ator: Pick<Ator, "id" | "email">;
+  autor: string | null;
   entidade: string;
   entidadeId: string;
   antes: Record<string, unknown>;
@@ -38,13 +37,7 @@ export async function registrarAlteracoes({
       valorNovo: paraTexto(depois[campo]),
     }))
     .filter((r) => r.valorAnterior !== r.valorNovo)
-    .map((r) => ({
-      ...r,
-      usuarioId: ator.id,
-      usuarioEmail: ator.email,
-      entidade,
-      entidadeId,
-    }));
+    .map((r) => ({ ...r, autor, entidade, entidadeId }));
 
   if (registros.length === 0) return 0;
 
@@ -53,14 +46,14 @@ export async function registrarAlteracoes({
 }
 
 export async function registrarEvento({
-  ator,
+  autor,
   entidade,
   entidadeId,
   campo,
   descricao,
   cliente = prisma,
 }: {
-  ator: Pick<Ator, "id" | "email">;
+  autor: string | null;
   entidade: string;
   entidadeId: string;
   campo: string;
@@ -69,8 +62,7 @@ export async function registrarEvento({
 }) {
   await cliente.registroAuditoria.create({
     data: {
-      usuarioId: ator.id,
-      usuarioEmail: ator.email,
+      autor,
       entidade,
       entidadeId,
       campo,

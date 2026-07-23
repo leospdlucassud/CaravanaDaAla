@@ -27,13 +27,6 @@ enum TipoUnidade {
   RAMO
 }
 
-enum Papel {
-  ADMINISTRADOR // bispado / secretário — tudo
-  ORGANIZADOR // edita a caravana e as inscrições
-  LIDER_ORGANIZACAO // vê e edita só a própria organização
-  VISUALIZADOR // somente leitura
-}
-
 enum Organizacao {
   QUORUM_ELDERES
   SOCIEDADE_SOCORRO
@@ -124,14 +117,12 @@ enum CanalAgendamento {
   ONLINE
 }
 
-enum Tema {
-  CLARO
-  ESCURO
-  SISTEMA
-}
-
 // ---------------------------------------------------------------------------
-// Unidade e usuários
+// Unidade
+//
+// O app não tem contas nem login: quem abre o endereço usa. Por isso não
+// existem aqui os modelos de usuário, sessão e token — só o registro de quem
+// declarou estar mexendo, em RegistroAuditoria.autor.
 // ---------------------------------------------------------------------------
 
 /// Nenhuma unidade é fixada em código. A instalação configura a sua e pode
@@ -145,84 +136,11 @@ model Unidade {
   ehPropria Boolean     @default(false)
   criadoEm  DateTime    @default(now())
 
-  usuarios             User[]
   membros              Membro[]
   caravanasOrganizadas Caravana[]
 
   @@unique([nome, estaca])
   @@map("unidades")
-}
-
-/// Chama-se `User`, e não `Usuario`, porque o @auth/prisma-adapter acessa
-/// `prisma.user`, `prisma.account`, `prisma.session` e `prisma.verificationToken`
-/// por nome fixo. A tabela no banco continua `usuarios`, e os campos próprios do
-/// app seguem em português.
-model User {
-  id            String    @id @default(cuid())
-  nome          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-
-  papel Papel @default(VISUALIZADOR)
-  /// Só para LIDER_ORGANIZACAO: limita o acesso a uma organização.
-  organizacaoEscopo Organizacao?
-  unidadeId         String?
-  unidade           Unidade?     @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
-  ativo             Boolean      @default(true)
-
-  // Preferências de interface, persistidas por usuário.
-  tema        Tema @default(SISTEMA)
-  escalaFonte Int  @default(100) // 90 | 100 | 125 | 150
-
-  criadoEm      DateTime  @default(now())
-  ultimoLoginEm DateTime?
-
-  accounts             Account[]
-  sessions             Session[]
-  auditoria            RegistroAuditoria[]
-  caravanasResponsavel Caravana[]          @relation("ResponsavelCaravana")
-
-  @@index([unidadeId])
-  @@map("usuarios")
-}
-
-model Account {
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  usuario User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model Session {
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  usuario User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String
-  expires    DateTime
-
-  @@id([identifier, token])
-  @@map("verification_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -281,8 +199,8 @@ model Caravana {
   capacidadeAssentos    Int
   valorPorPessoa        Decimal?       @db.Decimal(10, 2)
   custoTotalTransporte  Decimal?       @db.Decimal(10, 2)
-  responsavelId         String?
-  responsavel           User?          @relation("ResponsavelCaravana", fields: [responsavelId], references: [id], onDelete: SetNull)
+  /// Nome de quem organiza, escrito à mão — não há contas no sistema.
+  responsavel           String?
   status                StatusCaravana @default(PLANEJAMENTO)
   observacoes           String?
   criadoEm              DateTime       @default(now())
@@ -411,10 +329,11 @@ model VagaAgendamentoGrupo {
 // ---------------------------------------------------------------------------
 
 model RegistroAuditoria {
-  id            String   @id @default(cuid())
-  usuarioId     String?
-  usuario       User?    @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  usuarioEmail  String? // preservado mesmo se o usuário for removido
+  id String @id @default(cuid())
+  /// Nome que a pessoa declarou ao usar o app. Sem login, isto não é prova de
+  /// nada — serve para o histórico dizer "foi a Irmã Fulana" em vez de nada.
+  /// Nulo quando ninguém se identificou.
+  autor         String?
   entidade      String
   entidadeId    String
   campo         String

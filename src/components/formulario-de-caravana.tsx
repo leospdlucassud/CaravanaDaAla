@@ -16,6 +16,7 @@ export type ValoresDaCaravana = {
   data: string;
   templo: string;
   unidadeOrganizadoraId: string;
+  responsavel: string;
   horaSaida: string;
   horaRetornoPrevista: string;
   pontoEncontro: string;
@@ -31,6 +32,7 @@ const VAZIO: ValoresDaCaravana = {
   data: "",
   templo: "",
   unidadeOrganizadoraId: "",
+  responsavel: "",
   horaSaida: "",
   horaRetornoPrevista: "",
   pontoEncontro: "",
@@ -89,6 +91,7 @@ export function FormularioDeCaravana({
       data: valores.data,
       templo: valores.templo,
       unidadeOrganizadoraId: valores.unidadeOrganizadoraId,
+      responsavel: valores.responsavel || null,
       horaSaida: valores.horaSaida || null,
       horaRetornoPrevista: valores.horaRetornoPrevista || null,
       pontoEncontro: valores.pontoEncontro || null,
@@ -178,6 +181,16 @@ export function FormularioDeCaravana({
             <p className="text-muted-foreground text-xs">
               Passar disso manda a pessoa para a fila de espera automaticamente.
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="responsavel">Responsável pela caravana</Label>
+            <Input
+              id="responsavel"
+              placeholder="Nome de quem organiza"
+              className="h-11"
+              {...campo("responsavel")}
+            />
           </div>
 
           <div className="space-y-2">

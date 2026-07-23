@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, MapPin, Pencil, UserPlus } from "lucide-react";
-import { usuarioAtual } from "@/lib/autorizacao";
-import { ehSensivel, podeEditarCaravanaDe, podeEditarMembroDe } from "@/lib/permissoes";
 import { carregarInscritos, resumir } from "@/lib/consultas";
 import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
 import {
@@ -80,8 +78,6 @@ export default async function PaginaDaCaravana({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ator = await usuarioAtual();
-  if (!ator) return null;
 
   let dados: Awaited<ReturnType<typeof carregarInscritos>>;
   try {
@@ -92,7 +88,6 @@ export default async function PaginaDaCaravana({
 
   const { caravana, inscritos } = dados;
   const resumo = resumir(inscritos, caravana);
-  const podeEditarCaravana = podeEditarCaravanaDe(ator, caravana);
 
   const serializar = (i: (typeof inscritos)[number]): InscritoSerializado => ({
     id: i.id,
@@ -105,8 +100,6 @@ export default async function PaginaDaCaravana({
     agendamentoStatus: i.agendamentoStatus,
     nomesDeFamilia: i.nomesDeFamilia,
     pagamentoStatus: i.pagamentoStatus,
-    podeEditar: podeEditarMembroDe(ator, i.membro),
-    sensivel: ehSensivel(ator, i.membro),
     avisos: i.avisos,
     membro: {
       id: i.membro.id,
@@ -153,22 +146,20 @@ export default async function PaginaDaCaravana({
             </p>
           </div>
 
-          {podeEditarCaravana ? (
-            <div className="flex gap-2">
-              <Button asChild variant="outline" className="min-h-11">
-                <Link href={`/caravanas/${caravana.id}/editar`}>
-                  <Pencil className="size-4" aria-hidden="true" />
-                  Editar
-                </Link>
-              </Button>
-              <Button asChild className="min-h-11">
-                <Link href={`/caravanas/${caravana.id}/inscrever`}>
-                  <UserPlus className="size-4" aria-hidden="true" />
-                  Inscrever
-                </Link>
-              </Button>
-            </div>
-          ) : null}
+          <div className="flex gap-2">
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href={`/caravanas/${caravana.id}/editar`}>
+                <Pencil className="size-4" aria-hidden="true" />
+                Editar
+              </Link>
+            </Button>
+            <Button asChild className="min-h-11">
+              <Link href={`/caravanas/${caravana.id}/inscrever`}>
+                <UserPlus className="size-4" aria-hidden="true" />
+                Inscrever
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 

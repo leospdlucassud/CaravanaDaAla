@@ -9,6 +9,7 @@ import {
   ROTULO_TEMA,
   type EscalaDeFonte,
   type Preferencias,
+  type Tema,
 } from "@/lib/preferencias";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +21,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { Tema } from "@/generated/prisma/enums";
 
 const ICONE_TEMA = {
   CLARO: Sun,

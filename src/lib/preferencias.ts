@@ -1,12 +1,13 @@
-import type { Tema } from "@/generated/prisma/enums";
-
 /**
  * Tema e tamanho de fonte — parte compartilhada entre servidor e navegador.
  *
  * Sem `next/headers` aqui: este módulo é importado também pelo controle de
  * exibição, que roda no cliente. A leitura dos cookies vive em
  * `preferencias-servidor.ts`.
+ *
+ * O tema não é mais um enum do banco: sem contas, ele existe só no cookie.
  */
+export type Tema = "CLARO" | "ESCURO" | "SISTEMA";
 
 export const COOKIE_TEMA = "caravana.tema";
 export const COOKIE_ESCALA = "caravana.escala";

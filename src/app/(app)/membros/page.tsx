@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { filtroDeMembrosVisiveis, usuarioAtual } from "@/lib/autorizacao";
-import { podeEditarMembroDe } from "@/lib/permissoes";
 import {
   ROTULO_ORGANIZACAO_CURTO,
   ROTULO_RECOMENDACAO_TIPO,
@@ -23,15 +21,11 @@ export default async function PaginaDeMembros({
 }: {
   searchParams: Promise<{ busca?: string }>;
 }) {
-  const ator = await usuarioAtual();
-  if (!ator) return null;
-
   const { busca = "" } = await searchParams;
   const buscaNormalizada = normalizarNome(busca);
 
   const membros = await prisma.membro.findMany({
     where: {
-      ...filtroDeMembrosVisiveis(ator),
       ativo: true,
       ...(buscaNormalizada
         ? { nomeNormalizado: { contains: buscaNormalizada } }
@@ -89,14 +83,11 @@ export default async function PaginaDeMembros({
               membro.recomendacaoValidaAte,
               hoje,
             );
-            const editavel = podeEditarMembroDe(ator, membro);
-
             return (
               <li key={membro.id}>
                 <Link
                   href={`/membros/${membro.id}`}
                   className="focus-visible:ring-ring block rounded-lg focus-visible:ring-2 focus-visible:outline-none"
-                  aria-disabled={!editavel}
                 >
                   <Card className="hover:border-primary/50 transition-colors">
                     <CardContent className="space-y-2 p-4">
