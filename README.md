@@ -37,23 +37,27 @@ Por decisão de projeto, o app **não tem contas, senhas nem login**. Quem abre 
 endereço usa e edita tudo. Isso remove a maior fonte de atrito para quem não é
 técnico — não há senha para esquecer, nem convite para administrar.
 
-**O que isso significa, com todas as letras:** publicado na internet, qualquer
-pessoa que tenha o endereço vê nomes de membros, telefones e situação de
-recomendação, e pode alterar qualquer coisa. O endereço tende a circular: basta
-alguém encaminhar o link num grupo. Não há como saber quem entrou.
+**O endereço é a chave.** O app foi pensado para que o link fique apenas com a
+liderança da ala. Quem tiver o endereço vê nomes, telefones e situação de
+recomendação, e pode alterar qualquer coisa, sem deixar rastro de quem é.
 
-Três atenuantes, que ajudam mas não resolvem:
+Na prática, isso significa:
 
+- Passe o link **pessoalmente** a quem precisa, e evite colá-lo em grupos ou em
+  documentos compartilhados.
+- Se o link vazar, a correção é trocar o endereço do projeto na Vercel — o
+  antigo deixa de responder.
 - As páginas pedem para não serem indexadas (`noindex`), então o app não deve
-  aparecer no Google. Isso depende do buscador respeitar o pedido.
+  aparecer em busca. Isso depende do buscador respeitar o pedido.
 - O app pergunta, uma vez, **quem está usando** — é opcional, não barra
-  ninguém, e serve só para o histórico não ficar todo anônimo.
-- Todo o resto da proteção de dados continua: nada sobre dignidade ou entrevista
-  é armazenado, e um membro pode ser anonimizado.
+  ninguém, e serve só para o histórico não ficar anônimo.
+- O resto da proteção de dados continua valendo: nada sobre dignidade ou
+  entrevista é armazenado, e um membro pode ser anonimizado.
 
-Se um dia isso incomodar, o caminho mais barato é uma **senha única da ala** —
-uma palavra combinada, digitada uma vez por aparelho, sem cadastro nem e-mail.
-São poucas linhas de código, e não muda nada de como o app é usado no dia a dia.
+Se um dia o grupo crescer além da liderança, o caminho mais barato é uma
+**senha única da ala** — uma palavra combinada, digitada uma vez por aparelho,
+sem cadastro nem e-mail. São poucas linhas de código e não muda nada do uso
+diário.
 
 ---
 
@@ -175,9 +179,8 @@ fichas.
 npm run db:aplicar
 ```
 
-O endereço que a Vercel gerar é público e sem senha — trate o link como se
-fosse a própria lista: quem o tiver, entra. Vale combinar com o bispado quem
-recebe e evitar publicá-lo em grupos grandes.
+O endereço que a Vercel gerar é público e sem senha. Combine com o bispado quem
+recebe o link e passe-o pessoalmente — ver a seção "Acesso" no início.
 
 ---
 
@@ -259,9 +262,8 @@ As validações seguem o Manual Geral e o site da Igreja:
 ## Privacidade
 
 - Os dados ficam no seu banco, na sua conta do Neon.
-- **O app não tem login** — veja a seção "Acesso" no início. Quem tiver o
-  endereço vê e edita tudo. É uma escolha consciente, e o principal risco de
-  privacidade deste projeto.
+- **O app não tem login** — veja a seção "Acesso" no início. O endereço é a
+  chave, e fica com a liderança da ala.
 - Cada alteração fica registrada com data e hora, e com o nome que a pessoa
   declarou — que não é verificado.
 - Um membro pode ser **anonimizado** (LGPD): os dados pessoais são apagados e o
