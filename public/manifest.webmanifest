@@ -1,0 +1,18 @@
+{
+  "name": "Caravana ao Templo",
+  "short_name": "Caravana",
+  "description": "Organização das caravanas da ala ao templo.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icone.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

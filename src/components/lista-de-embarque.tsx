@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Check, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { Check, CloudOff, Search } from "lucide-react";
 import { toast } from "sonner";
 import { marcarEmbarque } from "@/app/acoes/embarque";
+import {
+  enfileirar,
+  lerFila,
+  sincronizar,
+  type CheckinPendente,
+} from "@/lib/sincronizacao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +36,40 @@ export function ListaDeEmbarque({ pessoas }: { pessoas: PessoaNoEmbarque[] }) {
       pessoas.map((p) => [p.id, { IDA: p.presenteIda, VOLTA: p.presenteVolta }]),
     ),
   );
+  const [pendentes, setPendentes] = useState(0);
   const [, iniciarTransicao] = useTransition();
+
+  const enviar = useCallback(
+    (item: CheckinPendente) =>
+      marcarEmbarque({
+        inscricaoId: item.inscricaoId,
+        trecho: item.trecho,
+        presente: item.presente,
+      }),
+    [],
+  );
+
+  const escoarFila = useCallback(async () => {
+    const { enviados, pendentes: restantes } = await sincronizar(enviar);
+    setPendentes(restantes);
+    if (enviados > 0) {
+      toast.success(`${enviados} marcação(ões) sincronizada(s).`);
+    }
+  }, [enviar]);
+
+  // Ao abrir a tela e sempre que a rede voltar, escoa o que ficou preso.
+  //
+  // O lint alerta sobre setState dentro de efeito, e em geral tem razão. Aqui é
+  // o caso que a própria regra abre exceção: sincronizar com um sistema externo
+  // (a fila no localStorage), cujo estado o React não tem como conhecer na
+  // renderização. O setState acontece depois do await, não no corpo síncrono.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void escoarFila();
+
+    window.addEventListener("online", escoarFila);
+    return () => window.removeEventListener("online", escoarFila);
+  }, [escoarFila]);
 
   const visiveis = useMemo(() => {
     const alvo = normalizarNome(busca);
@@ -43,6 +82,9 @@ export function ListaDeEmbarque({ pessoas }: { pessoas: PessoaNoEmbarque[] }) {
 
   function alternar(pessoa: PessoaNoEmbarque) {
     const presente = !estado[pessoa.id]?.[trecho];
+
+    // A marcação vale na hora, com ou sem rede: a chamada do ônibus não pode
+    // esperar sinal.
     setEstado((atual) => ({
       ...atual,
       [pessoa.id]: { ...atual[pessoa.id], [trecho]: presente },
@@ -52,11 +94,13 @@ export function ListaDeEmbarque({ pessoas }: { pessoas: PessoaNoEmbarque[] }) {
       try {
         await marcarEmbarque({ inscricaoId: pessoa.id, trecho, presente });
       } catch {
-        setEstado((atual) => ({
-          ...atual,
-          [pessoa.id]: { ...atual[pessoa.id], [trecho]: !presente },
-        }));
-        toast.error(`Não deu para marcar ${pessoa.nomeCompleto}.`);
+        enfileirar({
+          inscricaoId: pessoa.id,
+          trecho,
+          presente,
+          registradoEm: Date.now(),
+        });
+        setPendentes(lerFila().length);
       }
     });
   }
@@ -99,6 +143,17 @@ export function ListaDeEmbarque({ pessoas }: { pessoas: PessoaNoEmbarque[] }) {
             : `${faltando} pessoa(s) ainda não embarcaram`}
         </p>
       </div>
+
+      {pendentes > 0 ? (
+        <p
+          className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950"
+          aria-live="polite"
+        >
+          <CloudOff className="size-4 shrink-0" aria-hidden="true" />
+          {pendentes} marcação(ões) salva(s) no aparelho, esperando sinal. Pode
+          continuar a chamada — elas sobem sozinhas quando a internet voltar.
+        </p>
+      ) : null}
 
       <div className="relative">
         <Label htmlFor="busca-embarque" className="sr-only">

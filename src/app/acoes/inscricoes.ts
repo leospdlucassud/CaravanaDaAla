@@ -106,6 +106,49 @@ export async function atualizarCampoDaInscricao(entrada: {
   revalidatePath(`/caravanas/${registro.caravanaId}`);
 }
 
+/** Ajuste fino do financeiro: quem pagou valor diferente do padrão. */
+export async function atualizarValoresDoPagamento(entrada: {
+  inscricaoId: string;
+  valorPago: number | null;
+  valorBeneficioArea: number | null;
+}) {
+  const dados = z
+    .object({
+      inscricaoId: z.string().min(1),
+      valorPago: z.number().nonnegative().max(100_000).nullable(),
+      valorBeneficioArea: z.number().nonnegative().max(100_000).nullable(),
+    })
+    .parse(entrada);
+
+  const autor = await lerAutor();
+
+  const antes = await prisma.inscricao.findUniqueOrThrow({
+    where: { id: dados.inscricaoId },
+    select: { valorPago: true, valorBeneficioArea: true, caravanaId: true },
+  });
+
+  const depois = {
+    valorPago: dados.valorPago,
+    valorBeneficioArea: dados.valorBeneficioArea,
+  };
+
+  await prisma.inscricao.update({ where: { id: dados.inscricaoId }, data: depois });
+
+  await registrarAlteracoes({
+    autor,
+    entidade: "Inscricao",
+    entidadeId: dados.inscricaoId,
+    antes: {
+      valorPago: antes.valorPago?.toString() ?? null,
+      valorBeneficioArea: antes.valorBeneficioArea?.toString() ?? null,
+    },
+    depois,
+  });
+
+  revalidatePath(`/caravanas/${antes.caravanaId}`);
+  revalidatePath(`/caravanas/${antes.caravanaId}/financeiro`);
+}
+
 // ---------------------------------------------------------------------------
 // Inscrição, fila e capacidade
 //

@@ -9,6 +9,7 @@ import {
   Pencil,
   Send,
   UserPlus,
+  Wallet,
 } from "lucide-react";
 import { carregarInscritos, resumir } from "@/lib/consultas";
 import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
@@ -165,6 +166,12 @@ export default async function PaginaDaCaravana({
               <Link href={`/caravanas/${caravana.id}/agendamento`}>
                 <Send className="size-4" aria-hidden="true" />
                 Agendamento
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href={`/caravanas/${caravana.id}/financeiro`}>
+                <Wallet className="size-4" aria-hidden="true" />
+                Financeiro
               </Link>
             </Button>
             <Button asChild variant="outline" className="min-h-11">

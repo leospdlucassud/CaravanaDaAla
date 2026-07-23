@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Caravana ao Templo">
+  <rect width="192" height="192" rx="36" fill="#1f2937"/>
+  <g fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="40" y="56" width="112" height="72" rx="12"/>
+    <path d="M40 88h112"/>
+    <path d="M72 56v32M120 56v32"/>
+    <circle cx="66" cy="140" r="10"/>
+    <circle cx="126" cy="140" r="10"/>
+  </g>
+</svg>

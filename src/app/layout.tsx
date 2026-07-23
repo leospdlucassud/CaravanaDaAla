@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
 import { lerPreferencias, scriptAntiPiscada } from "@/lib/preferencias-servidor";
 import "./globals.css";
 
@@ -15,6 +16,8 @@ export const metadata: Metadata = {
   description:
     "Organização das caravanas da ala ao templo: inscrições, pendências, fila de espera e embarque.",
   robots: { index: false, follow: false },
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icone.svg" },
 };
 
 export const viewport: Viewport = {
@@ -47,6 +50,7 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground flex min-h-full flex-col">
         {children}
+        <RegistrarServiceWorker />
         <Toaster
           position="top-center"
           richColors
