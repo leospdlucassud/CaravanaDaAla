@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, MapPin, Pencil, UserPlus } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardCheck,
+  Clock,
+  MapPin,
+  Pencil,
+  Send,
+  UserPlus,
+} from "lucide-react";
 import { carregarInscritos, resumir } from "@/lib/consultas";
 import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
 import {
@@ -146,11 +154,23 @@ export default async function PaginaDaCaravana({
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" className="min-h-11">
               <Link href={`/caravanas/${caravana.id}/editar`}>
                 <Pencil className="size-4" aria-hidden="true" />
                 Editar
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href={`/caravanas/${caravana.id}/agendamento`}>
+                <Send className="size-4" aria-hidden="true" />
+                Agendamento
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href={`/caravanas/${caravana.id}/embarque`}>
+                <ClipboardCheck className="size-4" aria-hidden="true" />
+                Embarque
               </Link>
             </Button>
             <Button asChild className="min-h-11">

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, Search, TriangleAlert } from "lucide-react";
 import { atualizarCampoDaInscricao } from "@/app/acoes/inscricoes";
+import { AcoesDaInscricao } from "@/components/acoes-da-inscricao";
 import { ChipDeStatus, type OpcaoDeChip } from "@/components/chip-de-status";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -376,6 +377,12 @@ export function ListaDeInscritos({
                   <ChipsDaInscricao inscrito={inscrito} />
                   <Avisos avisos={inscrito.avisos} />
                 </div>
+
+                <AcoesDaInscricao
+                  inscricaoId={inscrito.id}
+                  nome={inscrito.membro.nomeCompleto}
+                  situacao={inscrito.situacao}
+                />
               </div>
             </li>
           ))}
