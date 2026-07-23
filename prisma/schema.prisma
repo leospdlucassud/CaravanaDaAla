@@ -145,7 +145,7 @@ model Unidade {
   ehPropria Boolean     @default(false)
   criadoEm  DateTime    @default(now())
 
-  usuarios             Usuario[]
+  usuarios             User[]
   membros              Membro[]
   caravanasOrganizadas Caravana[]
 
@@ -153,7 +153,11 @@ model Unidade {
   @@map("unidades")
 }
 
-model Usuario {
+/// Chama-se `User`, e não `Usuario`, porque o @auth/prisma-adapter acessa
+/// `prisma.user`, `prisma.account`, `prisma.session` e `prisma.verificationToken`
+/// por nome fixo. A tabela no banco continua `usuarios`, e os campos próprios do
+/// app seguem em português.
+model User {
   id            String    @id @default(cuid())
   nome          String?
   email         String    @unique
@@ -196,7 +200,7 @@ model Account {
   id_token          String?
   session_state     String?
 
-  usuario Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usuario User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
   @@map("accounts")
@@ -207,7 +211,7 @@ model Session {
   userId       String
   expires      DateTime
 
-  usuario Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usuario User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -278,7 +282,7 @@ model Caravana {
   valorPorPessoa        Decimal?       @db.Decimal(10, 2)
   custoTotalTransporte  Decimal?       @db.Decimal(10, 2)
   responsavelId         String?
-  responsavel           Usuario?       @relation("ResponsavelCaravana", fields: [responsavelId], references: [id], onDelete: SetNull)
+  responsavel           User?          @relation("ResponsavelCaravana", fields: [responsavelId], references: [id], onDelete: SetNull)
   status                StatusCaravana @default(PLANEJAMENTO)
   observacoes           String?
   criadoEm              DateTime       @default(now())
@@ -409,7 +413,7 @@ model VagaAgendamentoGrupo {
 model RegistroAuditoria {
   id            String   @id @default(cuid())
   usuarioId     String?
-  usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuario       User?    @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   usuarioEmail  String? // preservado mesmo se o usuário for removido
   entidade      String
   entidadeId    String

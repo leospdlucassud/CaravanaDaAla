@@ -337,7 +337,7 @@ export async function criarPrimeiraUnidade(entrada: {
 
   // Primeiro usuário sem unidade entra na que acabou de ser criada.
   if (!ator.unidadeId) {
-    await prisma.usuario.update({
+    await prisma.user.update({
       where: { id: ator.id },
       data: { unidadeId: unidade.id },
     });

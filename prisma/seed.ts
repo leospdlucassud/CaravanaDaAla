@@ -61,7 +61,7 @@ async function main() {
     .filter(Boolean);
 
   for (const email of administradores) {
-    await prisma.usuario.upsert({
+    await prisma.user.upsert({
       where: { email },
       update: { papel: "ADMINISTRADOR", ativo: true, ...(unidadeId ? { unidadeId } : {}) },
       create: {

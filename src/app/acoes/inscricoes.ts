@@ -67,12 +67,34 @@ export async function atualizarCampoDaInscricao(entrada: {
 
   const antes = await prisma.inscricao.findUniqueOrThrow({
     where: { id: entrada.inscricaoId },
-    select: { [entrada.campo]: true } as Record<string, true>,
+    select: {
+      [entrada.campo]: true,
+      valorPago: true,
+      caravana: { select: { valorPorPessoa: true } },
+    } as Record<string, true>,
   });
+
+  const depois: Record<string, unknown> = { [entrada.campo]: valor };
+
+  // Marcar "Pago" sem registrar o valor faria o contador de arrecadação mentir.
+  // Assumimos o valor por pessoa da caravana, que a tela de financeiro poderá
+  // ajustar depois quando alguém pagar valor diferente.
+  if (entrada.campo === "pagamentoStatus") {
+    const registro = antes as unknown as {
+      valorPago: unknown;
+      caravana: { valorPorPessoa: unknown };
+    };
+
+    if (valor === "PAGO" && registro.valorPago == null) {
+      depois.valorPago = registro.caravana.valorPorPessoa ?? null;
+    } else if (valor === "PENDENTE" || valor === "ISENTO") {
+      depois.valorPago = null;
+    }
+  }
 
   await prisma.inscricao.update({
     where: { id: entrada.inscricaoId },
-    data: { [entrada.campo]: valor },
+    data: depois,
   });
 
   await registrarAlteracoes({
@@ -80,7 +102,7 @@ export async function atualizarCampoDaInscricao(entrada: {
     entidade: "Inscricao",
     entidadeId: entrada.inscricaoId,
     antes: antes as Record<string, unknown>,
-    depois: { [entrada.campo]: valor },
+    depois,
   });
 
   revalidatePath(`/caravanas/${inscricao.caravanaId}`);

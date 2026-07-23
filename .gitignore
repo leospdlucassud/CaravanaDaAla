@@ -54,3 +54,4 @@ next-env.d.ts
 /.agents
 /.windsurf
 /skills-lock.json
+/.claude

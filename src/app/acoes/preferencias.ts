@@ -47,7 +47,7 @@ export async function salvarPreferencias(entrada: {
 
   const ator = await usuarioAtual();
   if (ator) {
-    await prisma.usuario.update({
+    await prisma.user.update({
       where: { id: ator.id },
       data: {
         ...(dados.tema ? { tema: dados.tema } : {}),

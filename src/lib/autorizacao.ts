@@ -25,7 +25,7 @@ export const usuarioAtual = cache(async (): Promise<Ator | null> => {
   const id = sessao?.user?.id;
   if (!id) return null;
 
-  const usuario = await prisma.usuario.findUnique({
+  const usuario = await prisma.user.findUnique({
     where: { id },
     select: {
       id: true,
