@@ -1,0 +1,424 @@
+// Caravana ao Templo — modelo de dados
+//
+// Princípio de escopo: este app cuida da LOGÍSTICA da caravana (assentos, fila,
+// pagamento, embarque, pendências). O registro eclesiástico oficial de dignidade
+// e preparação vive no Sistema de Preparação de Ordenanças, no LCR.
+// Aqui guardamos apenas o status agregado que o organizador precisa para não
+// deixar ninguém para trás. NUNCA armazenar motivo de indignidade, conteúdo de
+// entrevista ou qualquer detalhe pessoal desse tipo.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// No Prisma 7 as URLs de conexão vivem em prisma.config.ts (CLI/migrações) e no
+// driver adapter (runtime), não mais aqui.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum TipoUnidade {
+  ALA
+  RAMO
+}
+
+enum Papel {
+  ADMINISTRADOR // bispado / secretário — tudo
+  ORGANIZADOR // edita a caravana e as inscrições
+  LIDER_ORGANIZACAO // vê e edita só a própria organização
+  VISUALIZADOR // somente leitura
+}
+
+enum Organizacao {
+  QUORUM_ELDERES
+  SOCIEDADE_SOCORRO
+  MOCAS
+  RAPAZES
+  PRIMARIA
+}
+
+enum TipoVinculo {
+  MEMBRO
+  PESQUISADOR
+  CONVIDADO
+}
+
+enum Sexo {
+  MASCULINO
+  FEMININO
+}
+
+/// Tipo da recomendação que a pessoa possui (Manual Geral 26.1.1 / 26.1.2 / 26.1.3).
+enum RecomendacaoTipo {
+  NENHUMA
+  USO_LIMITADO // batismos e confirmações vicários
+  MEMBRO_INVESTIDO // todas as ordenanças pelos mortos
+  ORDENANCAS_PROPRIAS // investidura própria, selamento próprio
+}
+
+enum StatusRecomendacao {
+  VALIDA
+  VENCIDA
+  NAO_POSSUI
+  NAO_SE_APLICA
+}
+
+/// Ordenanças agendáveis. "Jardim" não é ordenança — ver TipoParticipacao.
+enum Ordenanca {
+  BATISTERIO
+  INICIATORIA
+  INVESTIDURA // vicária
+  PRIMEIRA_INVESTIDURA // própria: exige agendamento separado, por telefone
+  SELAMENTO_CONJUGE
+  SELAMENTO_FAMILIA
+}
+
+enum TipoParticipacao {
+  ORDENANCA
+  ACOMPANHANTE_JARDINS // ocupa assento no ônibus, não entra no templo
+}
+
+enum StatusSimples {
+  SIM
+  NAO
+  NAO_SE_APLICA
+}
+
+/// Fluxo do FamilySearch: reservar nomes -> Pedido de Ordenança Familiar (SOF)
+/// -> o templo imprime os cartões na chegada.
+enum NomesDeFamilia {
+  PROPRIOS_PRONTOS
+  USARA_NOMES_DO_TEMPLO
+  PRECISA_DE_AJUDA
+}
+
+enum StatusPagamento {
+  PENDENTE
+  PAGO
+  ISENTO
+  BENEFICIO_AREA
+}
+
+enum StatusCaravana {
+  PLANEJAMENTO
+  CONFIRMADA
+  REALIZADA
+  CANCELADA
+}
+
+enum SituacaoInscricao {
+  CONFIRMADA
+  FILA_ESPERA
+  DESISTIU
+  CANCELADA
+}
+
+enum CanalAgendamento {
+  EMAIL
+  TELEFONE
+  ONLINE
+}
+
+enum Tema {
+  CLARO
+  ESCURO
+  SISTEMA
+}
+
+// ---------------------------------------------------------------------------
+// Unidade e usuários
+// ---------------------------------------------------------------------------
+
+/// Nenhuma unidade é fixada em código. A instalação configura a sua e pode
+/// cadastrar outras para caravanas compartilhadas.
+model Unidade {
+  id        String      @id @default(cuid())
+  nome      String
+  tipo      TipoUnidade @default(ALA)
+  estaca    String?
+  /// Marca a unidade dona desta instalação.
+  ehPropria Boolean     @default(false)
+  criadoEm  DateTime    @default(now())
+
+  usuarios             Usuario[]
+  membros              Membro[]
+  caravanasOrganizadas Caravana[]
+
+  @@unique([nome, estaca])
+  @@map("unidades")
+}
+
+model Usuario {
+  id            String    @id @default(cuid())
+  nome          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  papel Papel @default(VISUALIZADOR)
+  /// Só para LIDER_ORGANIZACAO: limita o acesso a uma organização.
+  organizacaoEscopo Organizacao?
+  unidadeId         String?
+  unidade           Unidade?     @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
+  ativo             Boolean      @default(true)
+
+  // Preferências de interface, persistidas por usuário.
+  tema        Tema @default(SISTEMA)
+  escalaFonte Int  @default(100) // 90 | 100 | 125 | 150
+
+  criadoEm      DateTime  @default(now())
+  ultimoLoginEm DateTime?
+
+  accounts             Account[]
+  sessions             Session[]
+  auditoria            RegistroAuditoria[]
+  caravanasResponsavel Caravana[]          @relation("ResponsavelCaravana")
+
+  @@index([unidadeId])
+  @@map("usuarios")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  usuario Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  usuario Usuario @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Membro — o registro permanente. A caravana apenas referencia.
+// ---------------------------------------------------------------------------
+
+model Membro {
+  id              String       @id @default(cuid())
+  nomeCompleto    String
+  /// Minúsculas, sem acento, espaços colapsados — para busca e deduplicação.
+  nomeNormalizado String
+  apelido         String?
+  unidadeId       String
+  unidade         Unidade      @relation(fields: [unidadeId], references: [id], onDelete: Restrict)
+  organizacao     Organizacao?
+  tipoVinculo     TipoVinculo  @default(MEMBRO)
+  sexo            Sexo?
+  /// Só o ano: a regra do batistério é "janeiro do ano em que completa 12"
+  /// (Manual Geral 26.1.1). Guardar a data cheia de menores seria dado a mais.
+  anoNascimento   Int?
+  telefone        String?
+  recemConverso   Boolean      @default(false)
+  ehInvestido     Boolean      @default(false)
+
+  recomendacaoTipo RecomendacaoTipo @default(NENHUMA)
+  /// A data impressa na recomendação sempre prevalece sobre qualquer cálculo.
+  recomendacaoValidaAte DateTime?
+
+  observacoes   String?
+  ativo         Boolean   @default(true)
+  anonimizadoEm DateTime?
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  inscricoes Inscricao[]
+
+  @@index([unidadeId, nomeNormalizado])
+  @@index([unidadeId, organizacao])
+  @@map("membros")
+}
+
+// ---------------------------------------------------------------------------
+// Caravana
+// ---------------------------------------------------------------------------
+
+model Caravana {
+  id                    String         @id @default(cuid())
+  titulo                String
+  data                  DateTime       @db.Date
+  templo                String
+  unidadeOrganizadoraId String
+  unidadeOrganizadora   Unidade        @relation(fields: [unidadeOrganizadoraId], references: [id], onDelete: Restrict)
+  horaSaida             String? // "05:30"
+  horaRetornoPrevista   String?
+  pontoEncontro         String?
+  capacidadeAssentos    Int
+  valorPorPessoa        Decimal?       @db.Decimal(10, 2)
+  custoTotalTransporte  Decimal?       @db.Decimal(10, 2)
+  responsavelId         String?
+  responsavel           Usuario?       @relation("ResponsavelCaravana", fields: [responsavelId], references: [id], onDelete: SetNull)
+  status                StatusCaravana @default(PLANEJAMENTO)
+  observacoes           String?
+  criadoEm              DateTime       @default(now())
+  atualizadoEm          DateTime       @updatedAt
+
+  inscricoes        Inscricao[]
+  pedidoAgendamento PedidoAgendamento?
+
+  @@index([data])
+  @@map("caravanas")
+}
+
+// ---------------------------------------------------------------------------
+// Inscrição — o que era uma linha da planilha.
+// ---------------------------------------------------------------------------
+
+model Inscricao {
+  id         String   @id @default(cuid())
+  caravanaId String
+  caravana   Caravana @relation(fields: [caravanaId], references: [id], onDelete: Cascade)
+  membroId   String
+  membro     Membro   @relation(fields: [membroId], references: [id], onDelete: Restrict)
+
+  situacao SituacaoInscricao @default(CONFIRMADA)
+  /// Ordem de inscrição entre as confirmadas. Calculada pelo servidor.
+  ordem    Int
+  /// Posição na fila de espera. Calculada pelo servidor, nunca digitada.
+  posicaoFila Int?
+
+  participacao TipoParticipacao @default(ORDENANCA)
+  ordenanca    Ordenanca?
+
+  // Status por-viagem. Nulo significa PENDENTE — não existe valor "?".
+  recomendacaoStatus StatusRecomendacao?
+  agendamentoStatus  StatusSimples?
+  nomesDeFamilia     NomesDeFamilia?
+
+  incluidoNoAgendamentoGrupo Boolean @default(false)
+
+  pagamentoStatus    StatusPagamento @default(PENDENTE)
+  valorPago          Decimal?        @db.Decimal(10, 2)
+  valorBeneficioArea Decimal?        @db.Decimal(10, 2)
+
+  // Sinalizadores de ação — separados do status, ao contrário da planilha.
+  precisaAjudaEntrevista Boolean @default(false)
+  precisaAjudaNomes      Boolean @default(false)
+
+  acompanhanteId String?
+  acompanhante   Inscricao?  @relation("Acompanhamento", fields: [acompanhanteId], references: [id], onDelete: SetNull)
+  acompanhados   Inscricao[] @relation("Acompanhamento")
+
+  checkinIda   DateTime?
+  checkinVolta DateTime?
+
+  observacoes  String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  checklistPrimeiraInvestidura ChecklistPrimeiraInvestidura?
+
+  @@unique([caravanaId, membroId])
+  @@index([caravanaId, situacao])
+  @@map("inscricoes")
+}
+
+/// Lembrete de logística, não registro de dignidade. Os requisitos do Manual
+/// (27.2.2) ficam num único booleano verificado pelo bispo — sem detalhe.
+model ChecklistPrimeiraInvestidura {
+  inscricaoId String    @id
+  inscricao   Inscricao @relation(fields: [inscricaoId], references: [id], onDelete: Cascade)
+
+  requisitosVerificadosPeloBispo Boolean @default(false)
+  entrevistaBispoFeita           Boolean @default(false)
+  entrevistaEstacaFeita          Boolean @default(false)
+  /// Ordenanças próprias exigem agendamento separado, por telefone.
+  agendamentoProprioFeito      Boolean @default(false)
+  roupasDoTemploProvidenciadas Boolean @default(false)
+  acompanhanteDesignado        Boolean @default(false)
+  orientacaoRecebida           Boolean @default(false)
+
+  atualizadoEm DateTime @updatedAt
+
+  @@map("checklists_primeira_investidura")
+}
+
+// ---------------------------------------------------------------------------
+// Agendamento com o templo
+//
+// Alas e estacas agendam por e-mail ou telefone (o agendamento on-line em grupo
+// atende só grupos pequenos). O pedido informa quantos homens e quantas
+// mulheres por ordenança — daí a contagem por sexo.
+// ---------------------------------------------------------------------------
+
+model PedidoAgendamento {
+  id         String   @id @default(cuid())
+  caravanaId String   @unique
+  caravana   Caravana @relation(fields: [caravanaId], references: [id], onDelete: Cascade)
+
+  canal        CanalAgendamento @default(EMAIL)
+  enviadoEm    DateTime?
+  confirmadoEm DateTime?
+  referencia   String? // protocolo/confirmação devolvido pelo templo
+  observacoes  String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  vagas VagaAgendamentoGrupo[]
+
+  @@map("pedidos_agendamento")
+}
+
+model VagaAgendamentoGrupo {
+  id                  String            @id @default(cuid())
+  pedidoAgendamentoId String
+  pedidoAgendamento   PedidoAgendamento @relation(fields: [pedidoAgendamentoId], references: [id], onDelete: Cascade)
+  ordenanca           Ordenanca
+  vagasConfirmadas    Int               @default(0)
+
+  @@unique([pedidoAgendamentoId, ordenanca])
+  @@map("vagas_agendamento_grupo")
+}
+
+// ---------------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------------
+
+model RegistroAuditoria {
+  id            String   @id @default(cuid())
+  usuarioId     String?
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioEmail  String? // preservado mesmo se o usuário for removido
+  entidade      String
+  entidadeId    String
+  campo         String
+  valorAnterior String?
+  valorNovo     String?
+  criadoEm      DateTime @default(now())
+
+  @@index([entidade, entidadeId])
+  @@index([criadoEm])
+  @@map("registros_auditoria")
+}
