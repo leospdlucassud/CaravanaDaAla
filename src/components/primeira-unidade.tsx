@@ -51,7 +51,6 @@ export function PrimeiraUnidade() {
             <Input
               id="unidade-nome"
               required
-              placeholder="Ala Jardim Ipê"
               className="h-11"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
@@ -75,7 +74,6 @@ export function PrimeiraUnidade() {
             <Label htmlFor="unidade-estaca">Estaca ou distrito (opcional)</Label>
             <Input
               id="unidade-estaca"
-              placeholder="Estaca Nova Iguaçu"
               className="h-11"
               value={estaca}
               onChange={(e) => setEstaca(e.target.value)}

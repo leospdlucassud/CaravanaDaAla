@@ -4,6 +4,7 @@ import { lerAutor } from "@/lib/autor";
 import { lerPreferencias } from "@/lib/preferencias-servidor";
 import { ControlesDeExibicao } from "@/components/controles-de-exibicao";
 import { QuemEstaUsando } from "@/components/quem-esta-usando";
+import { TemploIcone } from "@/components/templo-icone";
 
 const ITENS_DE_NAVEGACAO = [
   { href: "/", rotulo: "Caravanas", Icone: Bus },
@@ -26,7 +27,7 @@ export default async function LayoutDoApp({
             href="/"
             className="mr-auto flex min-h-11 items-center gap-2 font-semibold"
           >
-            <Bus className="text-primary size-5 shrink-0" aria-hidden="true" />
+            <TemploIcone className="text-primary size-5 shrink-0" />
             <span className="hidden sm:inline">Caravana ao Templo</span>
             <span className="sm:hidden">Caravana</span>
           </Link>
