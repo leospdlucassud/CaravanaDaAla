@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { salvarAutor } from "@/app/acoes/preferencias";
+import { VERSAO } from "@/lib/versao";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,6 +87,10 @@ export function QuemEstaUsando({ autorAtual }: { autorAtual: string | null }) {
             {salvando ? "Salvando..." : "Salvar"}
           </Button>
         </form>
+
+        <p className="text-muted-foreground mt-3 border-t pt-3 text-center text-xs">
+          Versão {VERSAO}
+        </p>
       </PopoverContent>
     </Popover>
   );

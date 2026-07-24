@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { RegistrarServiceWorker } from "@/components/registrar-service-worker";
+import { VerificadorDeVersao } from "@/components/verificador-de-versao";
 import { lerPreferencias, scriptAntiPiscada } from "@/lib/preferencias-servidor";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default async function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         {children}
         <RegistrarServiceWorker />
+        <VerificadorDeVersao />
         <Toaster
           position="top-center"
           richColors
