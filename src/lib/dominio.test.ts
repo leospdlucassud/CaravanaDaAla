@@ -1,14 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
   avisoDeRecomendacaoParaOrdenanca,
+  caravanaEstaAtiva,
   elegivelParaBatisterio,
   entraNoPedidoDeGrupo,
   exigeAgendamentoProprio,
   montarPedidoDeGrupo,
+  rotuloGrupoCaravana,
   statusDaRecomendacao,
   validadeSugerida,
   venceAntesDaCaravana,
 } from "./dominio";
+
+describe("situação agrupada da caravana", () => {
+  it("trata planejamento e confirmada como ativas", () => {
+    expect(caravanaEstaAtiva("PLANEJAMENTO")).toBe(true);
+    expect(caravanaEstaAtiva("CONFIRMADA")).toBe(true);
+    expect(rotuloGrupoCaravana("PLANEJAMENTO")).toBe("Ativa");
+    expect(rotuloGrupoCaravana("CONFIRMADA")).toBe("Ativa");
+  });
+
+  it("trata realizada e cancelada como inativas", () => {
+    expect(caravanaEstaAtiva("REALIZADA")).toBe(false);
+    expect(caravanaEstaAtiva("CANCELADA")).toBe(false);
+    expect(rotuloGrupoCaravana("REALIZADA")).toBe("Inativo");
+    expect(rotuloGrupoCaravana("CANCELADA")).toBe("Inativo");
+  });
+});
 
 const DIA_DA_CARAVANA = new Date("2026-08-01T00:00:00Z");
 

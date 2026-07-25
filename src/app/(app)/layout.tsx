@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bus, Upload, Users } from "lucide-react";
+import { Bus, CircleHelp, Users } from "lucide-react";
 import { lerAutor } from "@/lib/autor";
 import { lerPreferencias } from "@/lib/preferencias-servidor";
 import { ControlesDeExibicao } from "@/components/controles-de-exibicao";
@@ -9,7 +9,7 @@ import { TemploIcone } from "@/components/templo-icone";
 const ITENS_DE_NAVEGACAO = [
   { href: "/", rotulo: "Caravanas", Icone: Bus },
   { href: "/membros", rotulo: "Membros", Icone: Users },
-  { href: "/importar", rotulo: "Importar", Icone: Upload },
+  { href: "/ajuda", rotulo: "Ajuda", Icone: CircleHelp },
 ];
 
 export default async function LayoutDoApp({

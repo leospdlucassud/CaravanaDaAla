@@ -138,32 +138,12 @@ Abra <http://localhost:3000>. Não há tela de login: você já entra no app.
 
 ---
 
-## Importar a planilha antiga
+## Como usar no dia a dia
 
-Menu **Importar** → escolha o `.xlsx` → confira a prévia → importe.
-
-Nada é gravado antes da sua conferência. Vale explicar o que a importação
-**traduz**, porque não é cópia campo a campo:
-
-| Na planilha | No app | Por quê |
-|---|---|---|
-| `?` e célula vazia | a mesma pendência | Eram dois jeitos de dizer "não sei", e ninguém somava os dois. |
-| `Ajudar a agendar entrevista` | pendência + sinalizador de ajuda | Era uma **ação** ocupando a coluna do **estado** — ao marcá-la, o status se perdia. |
-| `Precisa de ajuda` (cartão) | pendência + sinalizador de ajuda | Mesmo problema. |
-| `jardim` | participação "acompanhante nos jardins" | Não é ordenança: é quem ocupa assento sem entrar no templo. |
-| `CARTÃO/ORD.` | preparo dos nomes de família | É o fluxo do FamilySearch: reservar nomes → Pedido de Ordenança Familiar → o templo imprime os cartões na chegada. |
-| `(Pesquisador)`, `(Rosa dos Ventos)` no meio do nome | campos próprios | Metadado dentro do nome não dá para filtrar nem contar. |
-| Fila numerada à mão | posição recalculada | A planilha tinha a 1ª posição vazia com quatro pessoas esperando embaixo. |
-
-**Linhas sem nome:** a planilha original tinha 14 linhas com organização e
-status preenchidos e nenhum nome — quase um terço da caravana. A importação
-**não as descarta**: destaca cada uma e pede o nome ali mesmo. O que o app não
-consegue inventar é justamente quem é a pessoa.
-
-**Duplicatas:** nomes muito parecidos são apontados com o percentual de
-semelhança, e você escolhe entre reaproveitar o cadastro ou criar outro. Nada é
-mesclado automaticamente — juntar duas pessoas por engano é pior que ter duas
-fichas.
+O passo a passo completo está **dentro do app, no menu Ajuda**, e também no
+arquivo [MANUAL.md](MANUAL.md). Em resumo: cadastre a unidade, cadastre os
+membros, crie a caravana, inscreva as pessoas e vá resolvendo as pendências na
+lista de inscritos.
 
 ---
 
@@ -204,13 +184,13 @@ recebe o link e passe-o pessoalmente — ver a seção "Acesso" no início.
 prisma/schema.prisma        modelo de dados, com os porquês nos comentários
 src/lib/dominio.ts          regras do Manual Geral (recomendação, idade, agendamento)
 src/lib/fila.ts             capacidade do ônibus e fila de espera
-src/lib/importacao.ts       tradução da planilha para o modelo do app
 src/lib/autor.ts            quem declarou estar usando (cookie, não é login)
 src/app/acoes/              Server Actions (tudo que grava passa por aqui)
 src/app/(app)/              telas do app
 ```
 
-Três módulos — `dominio`, `fila` e `importacao` — são **puros**: não tocam banco
+Os módulos `dominio`, `fila`, `mensagens`, `pedido`, `financeiro` e `versao` são
+**puros**: não tocam banco
 nem rede. É por isso que dá para testá-los inteiros em segundos, e é neles que
 mora a lógica que não pode errar.
 

@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { AcoesDaCaravana } from "@/components/acoes-da-caravana";
 import { carregarInscritos, resumir } from "@/lib/consultas";
-import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
+import {
+  caravanaEstaAtiva,
+  ROTULO_STATUS_CARAVANA,
+  rotuloGrupoCaravana,
+} from "@/lib/dominio";
 import {
   ListaDeInscritos,
   type InscritoSerializado,
@@ -122,9 +126,12 @@ export default async function PaginaDaCaravana({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold">{caravana.titulo}</h1>
-              <Badge variant="secondary">
-                {ROTULO_STATUS_CARAVANA[caravana.status]}
+              <Badge variant={caravanaEstaAtiva(caravana.status) ? "default" : "secondary"}>
+                {rotuloGrupoCaravana(caravana.status)}
               </Badge>
+              <span className="text-muted-foreground text-sm">
+                {ROTULO_STATUS_CARAVANA[caravana.status]}
+              </span>
             </div>
             <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="flex items-center gap-1.5">
@@ -145,7 +152,7 @@ export default async function PaginaDaCaravana({
             </p>
           </div>
 
-          <AcoesDaCaravana caravanaId={caravana.id} />
+          <AcoesDaCaravana caravanaId={caravana.id} statusAtual={caravana.status} />
         </div>
       </header>
 

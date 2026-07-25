@@ -100,8 +100,24 @@ export const ROTULO_STATUS_CARAVANA: Record<StatusCaravana, string> = {
   CANCELADA: "Cancelada",
 };
 
+/**
+ * Situação agrupada da caravana, do jeito que a liderança pensa:
+ * - Ativa: ainda vai acontecer (em planejamento ou confirmada).
+ * - Inativa: encerrada (realizada ou cancelada).
+ * A lista de caravanas mostra só as ativas por padrão.
+ */
+export const STATUS_ATIVOS: StatusCaravana[] = ["PLANEJAMENTO", "CONFIRMADA"];
+
+export function caravanaEstaAtiva(status: StatusCaravana): boolean {
+  return STATUS_ATIVOS.includes(status);
+}
+
+export function rotuloGrupoCaravana(status: StatusCaravana): "Ativa" | "Inativo" {
+  return caravanaEstaAtiva(status) ? "Ativa" : "Inativo";
+}
+
 export const ROTULO_VINCULO: Record<TipoVinculo, string> = {
-  MEMBRO: "Membro",
+  MEMBRO: "Membro da Ala",
   PESQUISADOR: "Pesquisador",
   CONVIDADO: "Convidado",
 };

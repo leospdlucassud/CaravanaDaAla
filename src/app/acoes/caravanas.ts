@@ -8,6 +8,42 @@ import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
 import { aplicarCapacidade, renumerar } from "@/lib/fila";
 
+/** Muda a situação da caravana (planejamento / confirmada / realizada / cancelada). */
+export async function alterarStatusCaravana(
+  caravanaId: string,
+  status: "PLANEJAMENTO" | "CONFIRMADA" | "REALIZADA" | "CANCELADA",
+) {
+  const dados = z
+    .object({
+      caravanaId: z.string().min(1),
+      status: z.enum(["PLANEJAMENTO", "CONFIRMADA", "REALIZADA", "CANCELADA"]),
+    })
+    .parse({ caravanaId, status });
+
+  const autor = await lerAutor();
+
+  const antes = await prisma.caravana.findUniqueOrThrow({
+    where: { id: dados.caravanaId },
+    select: { status: true },
+  });
+
+  await prisma.caravana.update({
+    where: { id: dados.caravanaId },
+    data: { status: dados.status },
+  });
+
+  await registrarAlteracoes({
+    autor,
+    entidade: "Caravana",
+    entidadeId: dados.caravanaId,
+    antes: { status: antes.status },
+    depois: { status: dados.status },
+  });
+
+  revalidatePath("/");
+  revalidatePath(`/caravanas/${dados.caravanaId}`);
+}
+
 const horario = z
   .string()
   .trim()

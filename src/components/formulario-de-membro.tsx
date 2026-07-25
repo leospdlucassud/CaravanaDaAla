@@ -172,6 +172,7 @@ export function FormularioDeMembro({
             <Label htmlFor="vinculo">Vínculo</Label>
             <select
               id="vinculo"
+              required
               className="border-input bg-background h-11 w-full rounded-md border px-3 text-sm"
               {...campo("tipoVinculo")}
             >
@@ -187,10 +188,13 @@ export function FormularioDeMembro({
             <Label htmlFor="sexo">Sexo</Label>
             <select
               id="sexo"
+              required
               className="border-input bg-background h-11 w-full rounded-md border px-3 text-sm"
               {...campo("sexo")}
             >
-              <option value="">Não informado</option>
+              <option value="" disabled>
+                Selecione
+              </option>
               {(Object.keys(ROTULO_SEXO) as Sexo[]).map((s) => (
                 <option key={s} value={s}>
                   {ROTULO_SEXO[s]}
@@ -232,7 +236,22 @@ export function FormularioDeMembro({
             />
           </div>
 
-          <div className="flex items-center gap-3 sm:col-span-2">
+          <div className="space-y-2">
+            <Label htmlFor="investidura">Investidura</Label>
+            <select
+              id="investidura"
+              className="border-input bg-background h-11 w-full rounded-md border px-3 text-sm"
+              value={valores.ehInvestido ? "SIM" : "NAO"}
+              onChange={(e) =>
+                setValores((v) => ({ ...v, ehInvestido: e.target.value === "SIM" }))
+              }
+            >
+              <option value="NAO">Sem investidura</option>
+              <option value="SIM">Já recebeu a investidura</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
             <Checkbox
               id="recemConverso"
               checked={valores.recemConverso}
@@ -243,20 +262,9 @@ export function FormularioDeMembro({
             />
             <Label htmlFor="recemConverso" className="font-normal">
               Recém-converso
-            </Label>
-          </div>
-
-          <div className="flex items-center gap-3 sm:col-span-2">
-            <Checkbox
-              id="ehInvestido"
-              checked={valores.ehInvestido}
-              onCheckedChange={(marcado) =>
-                setValores((v) => ({ ...v, ehInvestido: marcado === true }))
-              }
-              className="size-5"
-            />
-            <Label htmlFor="ehInvestido" className="font-normal">
-              Já recebeu a investidura
+              <span className="text-muted-foreground block text-xs font-normal">
+                Batizado há menos de 2 anos
+              </span>
             </Label>
           </div>
         </CardContent>

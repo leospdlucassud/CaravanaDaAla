@@ -20,12 +20,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DuplicarCaravana } from "@/components/duplicar-caravana";
+import { AlterarSituacaoCaravana } from "@/components/alterar-situacao-caravana";
+import type { StatusCaravana } from "@/generated/prisma/enums";
 
 /**
  * As três ações do dia a dia ficam à mão; o resto vai para o menu.
  * Com dez botões lado a lado ninguém acha o que procura.
  */
-export function AcoesDaCaravana({ caravanaId }: { caravanaId: string }) {
+export function AcoesDaCaravana({
+  caravanaId,
+  statusAtual,
+}: {
+  caravanaId: string;
+  statusAtual: StatusCaravana;
+}) {
   const noMenu = [
     { href: `/caravanas/${caravanaId}/editar`, rotulo: "Editar caravana", Icone: Pencil },
     {
@@ -95,6 +103,8 @@ export function AcoesDaCaravana({ caravanaId }: { caravanaId: string }) {
       </DropdownMenu>
 
       <DuplicarCaravana caravanaId={caravanaId} />
+
+      <AlterarSituacaoCaravana caravanaId={caravanaId} statusAtual={statusAtual} />
     </div>
   );
 }

@@ -1,26 +1,19 @@
 import Link from "next/link";
-import { CalendarDays, MapPin, Plus, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-
-function formatarData(data: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(data);
-}
+import { ListaDeCaravanas } from "@/components/lista-de-caravanas";
 
 export default async function PaginaDeCaravanas() {
   const caravanas = await prisma.caravana.findMany({
     orderBy: { data: "desc" },
-    include: {
-      unidadeOrganizadora: { select: { nome: true } },
+    select: {
+      id: true,
+      titulo: true,
+      data: true,
+      templo: true,
+      status: true,
+      capacidadeAssentos: true,
       _count: { select: { inscricoes: { where: { situacao: "CONFIRMADA" } } } },
     },
   });
@@ -38,86 +31,24 @@ export default async function PaginaDeCaravanas() {
       </div>
 
       {caravanas.length === 0 ? (
-        <Card>
-          <CardContent className="text-muted-foreground py-12 text-center">
-            <p className="mb-4">Nenhuma caravana cadastrada ainda.</p>
-            <Button asChild variant="outline" className="min-h-11">
-              <Link href="/caravanas/nova">Criar a primeira caravana</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="text-muted-foreground rounded-lg border py-12 text-center">
+          <p className="mb-4">Nenhuma caravana cadastrada ainda.</p>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/caravanas/nova">Criar a primeira caravana</Link>
+          </Button>
+        </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {caravanas.map((caravana) => {
-            const ocupados = caravana._count.inscricoes;
-            const percentual =
-              caravana.capacidadeAssentos > 0
-                ? Math.min(100, (ocupados / caravana.capacidadeAssentos) * 100)
-                : 0;
-            const lotado = ocupados >= caravana.capacidadeAssentos;
-
-            return (
-              <li key={caravana.id}>
-                <Link
-                  href={`/caravanas/${caravana.id}`}
-                  className="focus-visible:ring-ring block h-full rounded-xl focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <Card className="hover:border-primary/50 h-full transition-colors">
-                    <CardHeader className="gap-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg">{caravana.titulo}</CardTitle>
-                        <Badge
-                          variant={
-                            caravana.status === "CONFIRMADA" ? "default" : "secondary"
-                          }
-                        >
-                          {ROTULO_STATUS_CARAVANA[caravana.status]}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="space-y-3 text-sm">
-                      <p className="flex items-center gap-2">
-                        <CalendarDays
-                          className="text-muted-foreground size-4 shrink-0"
-                          aria-hidden="true"
-                        />
-                        {formatarData(caravana.data)}
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <MapPin
-                          className="text-muted-foreground size-4 shrink-0"
-                          aria-hidden="true"
-                        />
-                        Templo de {caravana.templo}
-                      </p>
-                      <div className="space-y-1.5">
-                        <p className="flex items-center gap-2">
-                          <Users
-                            className="text-muted-foreground size-4 shrink-0"
-                            aria-hidden="true"
-                          />
-                          <span>
-                            {ocupados} de {caravana.capacidadeAssentos} assentos
-                          </span>
-                          {lotado ? (
-                            <Badge variant="outline" className="ml-auto">
-                              Lotado
-                            </Badge>
-                          ) : null}
-                        </p>
-                        <Progress
-                          value={percentual}
-                          aria-label={`${ocupados} de ${caravana.capacidadeAssentos} assentos ocupados`}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <ListaDeCaravanas
+          caravanas={caravanas.map((c) => ({
+            id: c.id,
+            titulo: c.titulo,
+            dataISO: c.data.toISOString(),
+            templo: c.templo,
+            status: c.status,
+            capacidadeAssentos: c.capacidadeAssentos,
+            ocupados: c._count.inscricoes,
+          }))}
+        />
       )}
     </div>
   );
