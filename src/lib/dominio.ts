@@ -23,6 +23,7 @@ import {
   TipoParticipacao,
   TipoVinculo,
 } from "@/generated/prisma/enums";
+import { capitalizarNome } from "@/lib/normalizar";
 
 // ---------------------------------------------------------------------------
 // Rótulos em português — o vocabulário da Igreja, um lugar só.
@@ -344,4 +345,61 @@ export function montarPedidoDeGrupo(
   return ordemDeExibicao
     .map((o) => porOrdenanca.get(o))
     .filter((l): l is LinhaDoPedidoDeGrupo => l !== undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Nome do templo
+// ---------------------------------------------------------------------------
+
+/**
+ * Nome do templo para guardar e exibir.
+ *
+ * O cadastro guarda o nome completo ("Templo do Rio de Janeiro"). Antes, as
+ * telas colavam "Templo de" na frente do que estava gravado — e quem digitava o
+ * nome completo via "Templo de Templo do rio de janeiro". Aqui: se já começa
+ * com "Templo", fica como está; senão, ganha o prefixo. A capitalização é
+ * normalizada ("rio de janeiro" → "Rio de Janeiro").
+ *
+ * O prefixo é "de" ("Templo de Campinas"), exceto para o Rio, que em português
+ * leva artigo: "Templo do Rio de Janeiro". Nos demais casos vale o nome
+ * completo digitado no cadastro.
+ *
+ * Idempotente: aplicar duas vezes dá o mesmo resultado.
+ */
+export function nomeDoTemplo(templo: string): string {
+  const limpo = templo.replace(/\s+/g, " ").trim();
+  if (!limpo) return "";
+  if (/^templo\b/i.test(limpo)) return capitalizarNome(limpo);
+  const preposicao = /^rio\b/i.test(limpo) ? "do" : "de";
+  return capitalizarNome(`Templo ${preposicao} ${limpo}`);
+}
+
+// ---------------------------------------------------------------------------
+// O que a pessoa vai fazer no templo
+// ---------------------------------------------------------------------------
+
+/**
+ * Ordenança escolhida, ou "JARDINS" para quem só acompanha e não entra no
+ * templo. Na tela é um único seletor; no banco são dois campos (participação e
+ * ordenança). Estas duas funções fazem a ponte — e garantem que dá para voltar
+ * de "jardins" para uma ordenança, o que antes não existia na tela.
+ */
+export type AtividadeNoTemplo = Ordenanca | "JARDINS" | null;
+
+export function atividadeDaInscricao(inscricao: {
+  participacao: TipoParticipacao;
+  ordenanca: Ordenanca | null;
+}): AtividadeNoTemplo {
+  return inscricao.participacao === "ACOMPANHANTE_JARDINS"
+    ? "JARDINS"
+    : inscricao.ordenanca;
+}
+
+export function camposDaAtividade(atividade: AtividadeNoTemplo): {
+  participacao: TipoParticipacao;
+  ordenanca: Ordenanca | null;
+} {
+  return atividade === "JARDINS"
+    ? { participacao: "ACOMPANHANTE_JARDINS", ordenanca: null }
+    : { participacao: "ORDENANCA", ordenanca: atividade };
 }

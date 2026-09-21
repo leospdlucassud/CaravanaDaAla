@@ -13,7 +13,7 @@
  */
 
 import type { Ordenanca } from "@/generated/prisma/enums";
-import { ROTULO_ORDENANCA } from "@/lib/dominio";
+import { nomeDoTemplo, ROTULO_ORDENANCA } from "@/lib/dominio";
 
 export type TipoDePendencia =
   | "entrevista"
@@ -50,7 +50,7 @@ export function montarMensagem(
   tipo: TipoDePendencia,
   dados: DadosDaMensagem,
 ): string {
-  const abertura = `Olá, ${dados.primeiroNome}! Sobre a ${dados.tituloDaCaravana} (${dados.dataFormatada}, Templo de ${dados.templo}):`;
+  const abertura = `Olá, ${dados.primeiroNome}! Sobre a ${dados.tituloDaCaravana} (${dados.dataFormatada}, ${nomeDoTemplo(dados.templo)}):`;
 
   const corpo: Record<TipoDePendencia, string> = {
     // Neutra de propósito: nada sobre a situação da recomendação.

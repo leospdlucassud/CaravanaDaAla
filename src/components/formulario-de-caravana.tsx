@@ -145,10 +145,14 @@ export function FormularioDeCaravana({
             <Input
               id="templo"
               required
-              placeholder="Rio de Janeiro"
+              placeholder="Templo do Rio de Janeiro"
               className="h-11"
+              aria-describedby="templo-ajuda"
               {...campo("templo")}
             />
+            <p id="templo-ajuda" className="text-muted-foreground text-xs">
+              Escreva o nome completo, como &quot;Templo do Rio de Janeiro&quot;.
+            </p>
           </div>
 
           <div className="space-y-2">

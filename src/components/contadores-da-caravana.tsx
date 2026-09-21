@@ -1,8 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronRight, TriangleAlert } from "lucide-react";
+import {
+  ArrowUp,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  TriangleAlert,
+  UserRound,
+} from "lucide-react";
+import { toast } from "sonner";
+import { promoverInscricao } from "@/app/acoes/inscricoes";
+import {
+  ChipAgendamento,
+  ChipAtividade,
+  ChipRecomendacao,
+  ChipsDaInscricao,
+} from "@/components/chips-da-inscricao";
+import { FormRecomendacaoDoMembro } from "@/components/form-recomendacao-membro";
+import type { InscritoSerializado } from "@/components/inscrito-serializado";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,29 +28,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ROTULO_ORGANIZACAO_CURTO } from "@/lib/dominio";
+import { ROTULO_ORGANIZACAO_CURTO, ROTULO_RECOMENDACAO_TIPO } from "@/lib/dominio";
 import { formatarDinheiro } from "@/lib/financeiro";
+import { PENDENCIAS, type ChaveDePendencia, type ResumoDaCaravana } from "@/lib/resumo";
 import { cn } from "@/lib/utils";
-import type { InscritoSerializado } from "@/components/lista-de-inscritos";
 
-// Reaproveitamos só o que interessa do resumo da caravana.
-type Resumo = {
-  confirmados: number;
-  capacidade: number;
-  vagasRestantes: number;
-  naFila: number;
-  comAvisoAlto: number;
-  noPedidoDeGrupo: number;
-  ordenancaPendente: number;
-  recomendacaoPendente: number;
-  agendamentoPendente: number;
-  totalArrecadado: number;
-  custoTotal: number;
-  pagamentoPendente: number;
-};
+/**
+ * Os cards do resumo da caravana. Cada um abre a lista de quem está por trás do
+ * número — e cada nome da lista abre, ali mesmo, o que resolve aquela
+ * pendência.
+ *
+ * A lista é "congelada" ao abrir: quem é resolvido continua visível, com um ✓,
+ * em vez de sumir e fazer a lista pular debaixo do dedo. O número do card e a
+ * contagem do topo do diálogo se atualizam sozinhos.
+ */
+
+type ChaveDeLista = "inscritos" | ChaveDePendencia;
 
 type CardBase = {
-  chave: string;
   rotulo: string;
   valor: string;
   detalhe?: string;
@@ -41,17 +54,28 @@ type CardBase = {
 
 type CardLista = CardBase & {
   tipo: "lista";
-  pessoas: InscritoSerializado[];
+  chave: ChaveDeLista;
+  /** Explica o card e o que fazer com cada nome. */
   descricao: string;
-  mostrarAvisos?: boolean;
-  mostrarPosicaoFila?: boolean;
 };
 
-type CardLink = CardBase & { tipo: "link"; href: string };
+type CardLink = CardBase & { tipo: "link"; chave: string; href: string };
 
-type CardParado = CardBase & { tipo: "parado" };
+type Card = CardLista | CardLink;
 
-type CardConfig = CardLista | CardLink | CardParado;
+/** Quem aparece na lista de cada card — as mesmas regras do número do card. */
+function pertenceAoCard(chave: ChaveDeLista, inscrito: InscritoSerializado): boolean {
+  return chave === "inscritos"
+    ? inscrito.situacao === "CONFIRMADA"
+    : PENDENCIAS[chave](inscrito);
+}
+
+const TEXTO_RESOLVIDO: Partial<Record<ChaveDeLista, string>> = {
+  fila: "Subiu para o ônibus",
+};
+
+const formatarData = (iso: string) =>
+  new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(iso));
 
 function classeValor(destaque?: "alerta" | "ok") {
   if (destaque === "alerta")
@@ -61,7 +85,7 @@ function classeValor(destaque?: "alerta" | "ok") {
   return "text-2xl font-semibold tabular-nums";
 }
 
-function MioloDoCard({ card, clicavel }: { card: CardConfig; clicavel: boolean }) {
+function MioloDoCard({ card, clicavel }: { card: Card; clicavel: boolean }) {
   return (
     <div className="p-4 text-left">
       <div className="flex items-start justify-between gap-2">
@@ -81,61 +105,280 @@ function MioloDoCard({ card, clicavel }: { card: CardConfig; clicavel: boolean }
   );
 }
 
-function LinhaPessoa({
+// --- O que resolve cada card -------------------------------------------------
+
+function LinkDaFicha({ membroId }: { membroId: string }) {
+  return (
+    <Link
+      href={`/membros/${membroId}`}
+      className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
+    >
+      <UserRound className="size-4" aria-hidden="true" />
+      Abrir a ficha completa
+    </Link>
+  );
+}
+
+function Dica({ children }: { children: React.ReactNode }) {
+  return <p className="text-muted-foreground text-sm">{children}</p>;
+}
+
+function PromoverDaFila({
   inscrito,
-  mostrarAvisos,
-  mostrarPosicaoFila,
+  vagasRestantes,
+  capacidade,
 }: {
   inscrito: InscritoSerializado;
-  mostrarAvisos?: boolean;
-  mostrarPosicaoFila?: boolean;
+  vagasRestantes: number;
+  capacidade: number;
 }) {
-  const numero = mostrarPosicaoFila ? inscrito.posicaoFila : inscrito.ordem;
+  const [promovendo, iniciarTransicao] = useTransition();
+
+  if (inscrito.situacao !== "FILA_ESPERA") {
+    return <Dica>Já está no ônibus.</Dica>;
+  }
+
+  function promover() {
+    iniciarTransicao(async () => {
+      try {
+        await promoverInscricao(inscrito.id);
+        toast.success(`${inscrito.membro.nomeCompleto} subiu para o ônibus — avise!`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Não foi possível promover.");
+      }
+    });
+  }
+
   return (
-    <li className="flex items-start gap-3 py-2">
-      <span className="bg-muted text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums">
-        {numero}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">
-          {inscrito.membro.nomeCompleto}
-          {inscrito.membro.apelido ? (
-            <span className="text-muted-foreground font-normal">
-              {" "}
-              ({inscrito.membro.apelido})
+    <div className="space-y-2">
+      {vagasRestantes > 0 ? (
+        <Dica>
+          {vagasRestantes} {vagasRestantes === 1 ? "vaga livre" : "vagas livres"} no
+          ônibus.
+        </Dica>
+      ) : (
+        <p className="text-sm text-amber-700 dark:text-amber-300">
+          O ônibus está lotado ({capacidade} assentos). Promover vai passar da
+          capacidade — faça isso só se houver lugar de fato.
+        </p>
+      )}
+      <Button onClick={promover} disabled={promovendo} className="min-h-11">
+        <ArrowUp className="size-4" aria-hidden="true" />
+        {promovendo ? "Promovendo..." : "Promover para o ônibus"}
+      </Button>
+    </div>
+  );
+}
+
+function PainelDeResolucao({
+  chave,
+  inscrito,
+  vagasRestantes,
+  capacidade,
+}: {
+  chave: ChaveDeLista;
+  inscrito: InscritoSerializado;
+  vagasRestantes: number;
+  capacidade: number;
+}) {
+  const { membro } = inscrito;
+
+  switch (chave) {
+    case "inscritos":
+      return (
+        <>
+          <ChipsDaInscricao inscrito={inscrito} />
+          <LinkDaFicha membroId={membro.id} />
+        </>
+      );
+
+    case "fila":
+      return (
+        <PromoverDaFila
+          inscrito={inscrito}
+          vagasRestantes={vagasRestantes}
+          capacidade={capacidade}
+        />
+      );
+
+    case "ordenanca":
+      return (
+        <>
+          <Dica>
+            Escolha o que a pessoa vai fazer no templo. Se ela só vai acompanhar,
+            escolha &quot;Só acompanha (jardins)&quot;.
+          </Dica>
+          <ChipAtividade inscrito={inscrito} />
+        </>
+      );
+
+    case "recomendacao":
+      return (
+        <>
+          <Dica>
+            Na ficha: {ROTULO_RECOMENDACAO_TIPO[membro.recomendacaoTipo]}
+            {membro.recomendacaoValidaAte
+              ? `, válida até ${formatarData(membro.recomendacaoValidaAte)}`
+              : membro.recomendacaoTipo === "NENHUMA"
+                ? ""
+                : ", sem data de validade registrada"}
+            .
+          </Dica>
+          <ChipRecomendacao inscrito={inscrito} />
+        </>
+      );
+
+    case "agendamento":
+      return (
+        <>
+          <Dica>A pessoa já tem horário marcado no templo?</Dica>
+          <ChipAgendamento inscrito={inscrito} />
+        </>
+      );
+
+    case "atencao":
+      return (
+        <>
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Nesta caravana</p>
+            <Dica>
+              Se a ordenança não combina com a recomendação, troque aqui — ou
+              marque &quot;Só acompanha (jardins)&quot;.
+            </Dica>
+            <ChipAtividade inscrito={inscrito} />
+          </div>
+          <FormRecomendacaoDoMembro
+            key={`${membro.recomendacaoTipo}-${membro.recomendacaoValidaAte ?? ""}`}
+            membroId={membro.id}
+            nome={membro.nomeCompleto}
+            tipoInicial={membro.recomendacaoTipo}
+            validaAteInicial={membro.recomendacaoValidaAte}
+          />
+          <LinkDaFicha membroId={membro.id} />
+        </>
+      );
+  }
+}
+
+// --- Uma linha (um nome) do diálogo ------------------------------------------
+
+function LinhaDoDialogo({
+  chave,
+  id,
+  inscrito,
+  expandida,
+  aoAlternar,
+  vagasRestantes,
+  capacidade,
+}: {
+  chave: ChaveDeLista;
+  id: string;
+  inscrito: InscritoSerializado | undefined;
+  expandida: boolean;
+  aoAlternar: () => void;
+  vagasRestantes: number;
+  capacidade: number;
+}) {
+  // Saiu da caravana (desistência ou remoção) enquanto o diálogo estava aberto.
+  if (!inscrito) {
+    return (
+      <li className="text-muted-foreground px-2 py-3 text-sm">
+        Esta pessoa saiu da lista (desistência ou remoção).
+      </li>
+    );
+  }
+
+  const resolvido = chave !== "inscritos" && !pertenceAoCard(chave, inscrito);
+  const numero =
+    inscrito.situacao === "FILA_ESPERA" ? inscrito.posicaoFila : inscrito.ordem;
+  const idDoPainel = `resolver-${id}`;
+  const avisosVisiveis = chave === "atencao" ? inscrito.avisos : [];
+
+  return (
+    <li className="py-1">
+      <button
+        type="button"
+        onClick={aoAlternar}
+        aria-expanded={expandida}
+        aria-controls={idDoPainel}
+        className="hover:bg-muted focus-visible:ring-ring flex min-h-11 w-full items-start gap-3 rounded-md px-2 py-2 text-left focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <span
+          className={cn(
+            "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums",
+            resolvido
+              ? "bg-emerald-600 text-white"
+              : "bg-muted text-muted-foreground",
+          )}
+          aria-hidden="true"
+        >
+          {resolvido ? <CheckCircle2 className="size-4" /> : numero}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">
+            {inscrito.membro.nomeCompleto}
+            {inscrito.membro.apelido ? (
+              <span className="text-muted-foreground font-normal">
+                {" "}
+                ({inscrito.membro.apelido})
+              </span>
+            ) : null}
+          </span>
+          <span className="text-muted-foreground block text-sm">
+            {inscrito.membro.organizacao
+              ? ROTULO_ORGANIZACAO_CURTO[inscrito.membro.organizacao]
+              : "Sem organização"}
+            {inscrito.membro.ehDeOutraUnidade ? ` · ${inscrito.membro.unidadeNome}` : ""}
+          </span>
+          {resolvido ? (
+            <span className="block text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              {TEXTO_RESOLVIDO[chave] ?? "Resolvido"}
             </span>
           ) : null}
-        </p>
-        <p className="text-muted-foreground text-sm">
-          {inscrito.membro.organizacao
-            ? ROTULO_ORGANIZACAO_CURTO[inscrito.membro.organizacao]
-            : "Sem organização"}
-          {inscrito.membro.ehDeOutraUnidade
-            ? ` · ${inscrito.membro.unidadeNome}`
-            : ""}
-        </p>
-        {mostrarAvisos && inscrito.avisos.length > 0 ? (
-          <ul className="mt-1 space-y-0.5">
-            {inscrito.avisos.map((aviso) => (
-              <li
-                key={aviso.codigo}
-                className={cn(
-                  "flex items-start gap-1.5 text-xs",
-                  aviso.gravidade === "alta"
-                    ? "text-red-700 dark:text-red-300"
-                    : "text-amber-700 dark:text-amber-300",
-                )}
-              >
-                <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                <span>{aviso.texto}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+        </span>
+
+        {expandida ? (
+          <ChevronDown className="text-muted-foreground mt-1 size-4 shrink-0" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="text-muted-foreground mt-1 size-4 shrink-0" aria-hidden="true" />
+        )}
+      </button>
+
+      {avisosVisiveis.length > 0 ? (
+        <ul className="mt-0.5 mb-1 space-y-0.5 pl-12">
+          {avisosVisiveis.map((aviso) => (
+            <li
+              key={aviso.codigo}
+              className={cn(
+                "flex items-start gap-1.5 text-xs",
+                aviso.gravidade === "alta"
+                  ? "text-red-700 dark:text-red-300"
+                  : "text-amber-700 dark:text-amber-300",
+              )}
+            >
+              <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+              <span>{aviso.texto}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {expandida ? (
+        <div id={idDoPainel} className="space-y-3 pt-1 pr-2 pb-3 pl-12">
+          <PainelDeResolucao
+            chave={chave}
+            inscrito={inscrito}
+            vagasRestantes={vagasRestantes}
+            capacidade={capacidade}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }
+
+// --- Cards + diálogo ---------------------------------------------------------
 
 export function ContadoresDaCaravana({
   caravanaId,
@@ -144,87 +387,83 @@ export function ContadoresDaCaravana({
   naFila,
 }: {
   caravanaId: string;
-  resumo: Resumo;
+  resumo: ResumoDaCaravana;
   confirmados: InscritoSerializado[];
   naFila: InscritoSerializado[];
 }) {
-  const [aberto, setAberto] = useState<string | null>(null);
+  // Card aberto e os ids que ele mostrava na hora — a lista fica congelada.
+  const [aberto, setAberto] = useState<{ chave: ChaveDeLista; ids: string[] } | null>(
+    null,
+  );
+  const [expandida, setExpandida] = useState<string | null>(null);
 
-  const cards = useMemo<CardConfig[]>(() => {
-    const comOrdenanca = confirmados.filter((i) => i.participacao === "ORDENANCA");
+  const todos = useMemo(() => [...confirmados, ...naFila], [confirmados, naFila]);
+  const porId = useMemo(() => new Map(todos.map((i) => [i.id, i])), [todos]);
 
-    return [
+  const cards = useMemo<Card[]>(
+    () => [
       {
-        chave: "inscritos",
         tipo: "lista",
+        chave: "inscritos",
         rotulo: "Inscritos",
         valor: `${resumo.confirmados}/${resumo.capacidade}`,
         detalhe:
           resumo.vagasRestantes > 0
             ? `${resumo.vagasRestantes} vaga(s) livre(s)`
             : "Ônibus lotado",
-        descricao: "Todos que estão confirmados nesta caravana.",
-        pessoas: confirmados,
+        descricao: "Toque num nome para ver e mudar tudo sobre a pessoa nesta caravana.",
       },
       {
-        chave: "fila",
         tipo: "lista",
+        chave: "fila",
         rotulo: "Fila de espera",
         valor: String(resumo.naFila),
         detalhe: resumo.naFila > 0 ? "Sobem se alguém desistir" : "Ninguém esperando",
-        descricao: "Sobem para o ônibus na ordem, quando abre vaga.",
-        pessoas: naFila,
-        mostrarPosicaoFila: true,
+        descricao: "Toque num nome para promover a pessoa para o ônibus.",
       },
       {
-        chave: "atencao",
         tipo: "lista",
+        chave: "atencao",
         rotulo: "Precisam de atenção",
         valor: String(resumo.comAvisoAlto),
         destaque: resumo.comAvisoAlto > 0 ? "alerta" : "ok",
         detalhe: "Podem ser barrados no templo",
-        descricao: "Resolva estes avisos antes da viagem.",
-        pessoas: confirmados.filter((i) =>
-          i.avisos.some((a) => a.gravidade === "alta"),
-        ),
-        mostrarAvisos: true,
+        descricao:
+          "Toque num nome para corrigir a ordenança ou a recomendação registrada na ficha.",
       },
       {
-        chave: "pedido",
         tipo: "link",
+        chave: "pedido",
         rotulo: "No pedido ao templo",
         valor: String(resumo.noPedidoDeGrupo),
         detalhe: "Sem as ordenanças próprias",
         href: `/caravanas/${caravanaId}/agendamento`,
       },
       {
-        chave: "ordenanca",
         tipo: "lista",
+        chave: "ordenanca",
         rotulo: "Ordenança a definir",
         valor: String(resumo.ordenancaPendente),
         destaque: resumo.ordenancaPendente > 0 ? "alerta" : "ok",
-        descricao: "Falta escolher o que cada um vai fazer no templo.",
-        pessoas: comOrdenanca.filter((i) => i.ordenanca === null),
+        descricao: "Toque num nome para escolher o que a pessoa vai fazer no templo.",
       },
       {
-        chave: "recomendacao",
         tipo: "lista",
+        chave: "recomendacao",
         rotulo: "Recomendação a conferir",
         valor: String(resumo.recomendacaoPendente),
-        descricao: "Falta confirmar a situação da recomendação.",
-        pessoas: comOrdenanca.filter((i) => i.recomendacaoStatus === null),
+        descricao: "Toque num nome para registrar a situação da recomendação.",
       },
       {
-        chave: "agendamento",
         tipo: "lista",
+        chave: "agendamento",
         rotulo: "Agendamento a confirmar",
         valor: String(resumo.agendamentoPendente),
-        descricao: "Falta confirmar o horário no templo.",
-        pessoas: comOrdenanca.filter((i) => i.agendamentoStatus === null),
+        descricao: "Toque num nome para confirmar o horário no templo.",
       },
       {
-        chave: "arrecadado",
         tipo: "link",
+        chave: "arrecadado",
         rotulo: "Arrecadado",
         valor: formatarDinheiro(resumo.totalArrecadado),
         detalhe:
@@ -233,19 +472,39 @@ export function ContadoresDaCaravana({
             : `${resumo.pagamentoPendente} pagamento(s) pendente(s)`,
         href: `/caravanas/${caravanaId}/financeiro`,
       },
-    ];
-  }, [caravanaId, resumo, confirmados, naFila]);
-
-  const cardAberto = cards.find(
-    (c): c is CardLista => c.tipo === "lista" && c.chave === aberto,
+    ],
+    [caravanaId, resumo],
   );
+
+  function abrir(chave: ChaveDeLista) {
+    const ids = todos.filter((i) => pertenceAoCard(chave, i)).map((i) => i.id);
+    setAberto({ chave, ids });
+    // Uma pessoa só: já abre o que resolve, sem toque extra.
+    setExpandida(ids.length === 1 ? ids[0] : null);
+  }
+
+  function fechar() {
+    setAberto(null);
+    setExpandida(null);
+  }
+
+  const cardAberto = aberto
+    ? cards.find((c): c is CardLista => c.tipo === "lista" && c.chave === aberto.chave)
+    : undefined;
+
+  const pendentesAgora =
+    aberto && aberto.chave !== "inscritos"
+      ? aberto.ids.filter((id) => {
+          const inscrito = porId.get(id);
+          return inscrito ? pertenceAoCard(aberto.chave, inscrito) : false;
+        }).length
+      : null;
 
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((card) => {
-          const classeCard =
-            "bg-card rounded-xl border transition-colors";
+          const classeCard = "bg-card rounded-xl border transition-colors";
 
           if (card.tipo === "link") {
             return (
@@ -262,55 +521,72 @@ export function ContadoresDaCaravana({
             );
           }
 
-          const temPessoas = card.tipo === "lista" && card.pessoas.length > 0;
+          const temAlguem = todos.some((i) => pertenceAoCard(card.chave, i));
 
-          if (card.tipo === "lista" && temPessoas) {
+          if (!temAlguem) {
+            // Ninguém a mostrar (ex.: nenhuma pendência) — card estático.
             return (
-              <button
-                key={card.chave}
-                type="button"
-                onClick={() => setAberto(card.chave)}
-                className={cn(
-                  classeCard,
-                  "hover:border-primary/50 focus-visible:ring-ring w-full focus-visible:ring-2 focus-visible:outline-none",
-                )}
-              >
-                <MioloDoCard card={card} clicavel />
-              </button>
+              <div key={card.chave} className={classeCard}>
+                <MioloDoCard card={card} clicavel={false} />
+              </div>
             );
           }
 
-          // Sem pessoas para mostrar (ex.: nenhuma pendência) — card estático.
           return (
-            <div key={card.chave} className={classeCard}>
-              <MioloDoCard card={card} clicavel={false} />
-            </div>
+            <button
+              key={card.chave}
+              type="button"
+              onClick={() => abrir(card.chave)}
+              className={cn(
+                classeCard,
+                "hover:border-primary/50 focus-visible:ring-ring w-full focus-visible:ring-2 focus-visible:outline-none",
+              )}
+            >
+              <MioloDoCard card={card} clicavel />
+            </button>
           );
         })}
       </div>
 
       <Dialog
         open={cardAberto !== undefined}
-        onOpenChange={(o) => {
-          if (!o) setAberto(null);
+        onOpenChange={(estaAberto) => {
+          if (!estaAberto) fechar();
         }}
       >
-        <DialogContent className="max-h-[80vh] overflow-hidden">
-          {cardAberto ? (
+        <DialogContent className="flex max-h-[85vh] flex-col gap-3 sm:max-w-lg">
+          {cardAberto && aberto ? (
             <>
               <DialogHeader>
                 <DialogTitle>
-                  {cardAberto.rotulo} ({cardAberto.pessoas.length})
+                  {cardAberto.rotulo} ({aberto.ids.length})
                 </DialogTitle>
-                <DialogDescription>{cardAberto.descricao}</DialogDescription>
+                <DialogDescription>
+                  {cardAberto.descricao}
+                  {pendentesAgora !== null ? (
+                    <span
+                      className="text-foreground mt-1 block font-medium"
+                      aria-live="polite"
+                    >
+                      {pendentesAgora === 0
+                        ? "Tudo resolvido."
+                        : `Faltam ${pendentesAgora} de ${aberto.ids.length}.`}
+                    </span>
+                  ) : null}
+                </DialogDescription>
               </DialogHeader>
-              <ul className="max-h-[60vh] divide-y overflow-y-auto">
-                {cardAberto.pessoas.map((inscrito) => (
-                  <LinhaPessoa
-                    key={inscrito.id}
-                    inscrito={inscrito}
-                    mostrarAvisos={cardAberto.mostrarAvisos}
-                    mostrarPosicaoFila={cardAberto.mostrarPosicaoFila}
+
+              <ul className="-mx-2 min-h-0 flex-1 divide-y overflow-y-auto px-2">
+                {aberto.ids.map((id) => (
+                  <LinhaDoDialogo
+                    key={id}
+                    chave={aberto.chave}
+                    id={id}
+                    inscrito={porId.get(id)}
+                    expandida={expandida === id}
+                    aoAlternar={() => setExpandida((atual) => (atual === id ? null : id))}
+                    vagasRestantes={resumo.vagasRestantes}
+                    capacidade={resumo.capacidade}
                   />
                 ))}
               </ul>

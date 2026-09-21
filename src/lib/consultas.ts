@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import {
   avisoDeRecomendacaoParaOrdenanca,
   elegivelParaBatisterio,
-  entraNoPedidoDeGrupo,
   exigeAgendamentoProprio,
   statusDaRecomendacao,
   venceAntesDaCaravana,
@@ -173,66 +172,6 @@ export function calcularAvisos(
   return avisos;
 }
 
-export type ResumoDaCaravana = {
-  confirmados: number;
-  naFila: number;
-  desistentes: number;
-  capacidade: number;
-  vagasRestantes: number;
-  recomendacaoPendente: number;
-  agendamentoPendente: number;
-  ordenancaPendente: number;
-  pagamentoPendente: number;
-  totalArrecadado: number;
-  custoTotal: number;
-  comAvisoAlto: number;
-  noPedidoDeGrupo: number;
-};
-
-export function resumir(
-  inscritos: Array<{
-    situacao: string;
-    participacao: "ORDENANCA" | "ACOMPANHANTE_JARDINS";
-    ordenanca: string | null;
-    recomendacaoStatus: string | null;
-    agendamentoStatus: string | null;
-    pagamentoStatus: string;
-    valorPago: unknown;
-    avisos: Aviso[];
-  }>,
-  caravana: { capacidadeAssentos: number; custoTotalTransporte: unknown },
-): ResumoDaCaravana {
-  const confirmados = inscritos.filter((i) => i.situacao === "CONFIRMADA");
-
-  const paraNumero = (v: unknown) => (v == null ? 0 : Number(v));
-
-  return {
-    confirmados: confirmados.length,
-    naFila: inscritos.filter((i) => i.situacao === "FILA_ESPERA").length,
-    desistentes: inscritos.filter((i) => i.situacao === "DESISTIU").length,
-    capacidade: caravana.capacidadeAssentos,
-    vagasRestantes: Math.max(0, caravana.capacidadeAssentos - confirmados.length),
-    recomendacaoPendente: confirmados.filter(
-      (i) => i.participacao === "ORDENANCA" && i.recomendacaoStatus === null,
-    ).length,
-    agendamentoPendente: confirmados.filter(
-      (i) => i.participacao === "ORDENANCA" && i.agendamentoStatus === null,
-    ).length,
-    ordenancaPendente: confirmados.filter(
-      (i) => i.participacao === "ORDENANCA" && i.ordenanca === null,
-    ).length,
-    pagamentoPendente: confirmados.filter((i) => i.pagamentoStatus === "PENDENTE")
-      .length,
-    totalArrecadado: confirmados.reduce((s, i) => s + paraNumero(i.valorPago), 0),
-    custoTotal: paraNumero(caravana.custoTotalTransporte),
-    comAvisoAlto: confirmados.filter((i) =>
-      i.avisos.some((a) => a.gravidade === "alta"),
-    ).length,
-    noPedidoDeGrupo: confirmados.filter((i) =>
-      entraNoPedidoDeGrupo(
-        i.participacao,
-        i.ordenanca as Parameters<typeof entraNoPedidoDeGrupo>[1],
-      ),
-    ).length,
-  };
-}
+// O resumo (números dos cards) vive em resumo.ts, que é puro e testável. Fica
+// re-exportado aqui para quem já importava de consultas.
+export { resumir, type ResumoDaCaravana } from "@/lib/resumo";

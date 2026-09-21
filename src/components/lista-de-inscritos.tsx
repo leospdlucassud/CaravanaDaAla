@@ -2,176 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle, Search, TriangleAlert } from "lucide-react";
-import { atualizarCampoDaInscricao } from "@/app/acoes/inscricoes";
 import { AcoesDaInscricao } from "@/components/acoes-da-inscricao";
-import { ChipDeStatus, type OpcaoDeChip } from "@/components/chip-de-status";
-import { Badge } from "@/components/ui/badge";
+import { ChipsDaInscricao } from "@/components/chips-da-inscricao";
+import type { InscritoSerializado } from "@/components/inscrito-serializado";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ROTULO_NOMES_FAMILIA,
-  ROTULO_ORDENANCA,
-  ROTULO_ORGANIZACAO_CURTO,
-  ROTULO_PAGAMENTO,
-  ROTULO_STATUS_RECOMENDACAO,
-  ROTULO_STATUS_SIMPLES,
-} from "@/lib/dominio";
+import { ROTULO_ORGANIZACAO_CURTO, type Aviso } from "@/lib/dominio";
 import { normalizarNome } from "@/lib/normalizar";
 import { cn } from "@/lib/utils";
-import type { Aviso } from "@/lib/dominio";
-import type {
-  NomesDeFamilia,
-  Ordenanca,
-  Organizacao,
-  SituacaoInscricao,
-  StatusPagamento,
-  StatusRecomendacao,
-  StatusSimples,
-  TipoParticipacao,
-} from "@/generated/prisma/enums";
+import type { Organizacao } from "@/generated/prisma/enums";
 
-export type InscritoSerializado = {
-  id: string;
-  ordem: number;
-  posicaoFila: number | null;
-  situacao: SituacaoInscricao;
-  participacao: TipoParticipacao;
-  ordenanca: Ordenanca | null;
-  recomendacaoStatus: StatusRecomendacao | null;
-  agendamentoStatus: StatusSimples | null;
-  nomesDeFamilia: NomesDeFamilia | null;
-  pagamentoStatus: StatusPagamento;
-  avisos: Aviso[];
-  membro: {
-    id: string;
-    nomeCompleto: string;
-    apelido: string | null;
-    organizacao: Organizacao | null;
-    unidadeNome: string;
-    ehDeOutraUnidade: boolean;
-    tipoVinculo: "MEMBRO" | "PESQUISADOR" | "CONVIDADO";
-    recemConverso: boolean;
-  };
-};
+// O tipo mora em inscrito-serializado.ts; re-exportado para quem já importava
+// daqui.
+export type { InscritoSerializado };
 
-// --- Opções dos chips ------------------------------------------------------
-
-const OPCOES_ORDENANCA: OpcaoDeChip<Ordenanca | null>[] = [
-  { valor: null, rotulo: "Pendente", tom: "atencao" },
-  ...(Object.keys(ROTULO_ORDENANCA) as Ordenanca[]).map((o) => ({
-    valor: o,
-    rotulo: ROTULO_ORDENANCA[o],
-    tom: "neutro" as const,
-  })),
-];
-
-const OPCOES_RECOMENDACAO: OpcaoDeChip<StatusRecomendacao | null>[] = [
-  { valor: null, rotulo: "Pendente", tom: "atencao" },
-  { valor: "VALIDA", rotulo: ROTULO_STATUS_RECOMENDACAO.VALIDA, tom: "positivo" },
-  { valor: "VENCIDA", rotulo: ROTULO_STATUS_RECOMENDACAO.VENCIDA, tom: "critico" },
-  { valor: "NAO_POSSUI", rotulo: ROTULO_STATUS_RECOMENDACAO.NAO_POSSUI, tom: "critico" },
-  {
-    valor: "NAO_SE_APLICA",
-    rotulo: ROTULO_STATUS_RECOMENDACAO.NAO_SE_APLICA,
-    tom: "neutro",
-  },
-];
-
-const OPCOES_AGENDAMENTO: OpcaoDeChip<StatusSimples | null>[] = [
-  { valor: null, rotulo: "Pendente", tom: "atencao" },
-  { valor: "SIM", rotulo: ROTULO_STATUS_SIMPLES.SIM, tom: "positivo" },
-  { valor: "NAO", rotulo: ROTULO_STATUS_SIMPLES.NAO, tom: "atencao" },
-  { valor: "NAO_SE_APLICA", rotulo: ROTULO_STATUS_SIMPLES.NAO_SE_APLICA, tom: "neutro" },
-];
-
-const OPCOES_NOMES: OpcaoDeChip<NomesDeFamilia | null>[] = [
-  { valor: null, rotulo: "Pendente", tom: "atencao" },
-  {
-    valor: "PROPRIOS_PRONTOS",
-    rotulo: ROTULO_NOMES_FAMILIA.PROPRIOS_PRONTOS,
-    tom: "positivo",
-  },
-  {
-    valor: "USARA_NOMES_DO_TEMPLO",
-    rotulo: ROTULO_NOMES_FAMILIA.USARA_NOMES_DO_TEMPLO,
-    tom: "neutro",
-  },
-  {
-    valor: "PRECISA_DE_AJUDA",
-    rotulo: ROTULO_NOMES_FAMILIA.PRECISA_DE_AJUDA,
-    tom: "atencao",
-  },
-];
-
-const OPCOES_PAGAMENTO: OpcaoDeChip<StatusPagamento>[] = [
-  { valor: "PENDENTE", rotulo: ROTULO_PAGAMENTO.PENDENTE, tom: "atencao" },
-  { valor: "PAGO", rotulo: ROTULO_PAGAMENTO.PAGO, tom: "positivo" },
-  { valor: "ISENTO", rotulo: ROTULO_PAGAMENTO.ISENTO, tom: "neutro" },
-  { valor: "BENEFICIO_AREA", rotulo: ROTULO_PAGAMENTO.BENEFICIO_AREA, tom: "neutro" },
-];
-
-// --- Chips de uma inscrição ------------------------------------------------
-
-function ChipsDaInscricao({ inscrito }: { inscrito: InscritoSerializado }) {
-  const salvar =
-    <T,>(campo: string) =>
-    async (valor: T) => {
-      await atualizarCampoDaInscricao({
-        inscricaoId: inscrito.id,
-        campo: campo as never,
-        valor,
-      });
-    };
-
-  const nosJardins = inscrito.participacao === "ACOMPANHANTE_JARDINS";
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {nosJardins ? (
-        <Badge variant="outline" className="min-h-11 rounded-full px-3">
-          Acompanha nos jardins
-        </Badge>
-      ) : (
-        <>
-          <ChipDeStatus
-            rotuloDoCampo="Ordenança"
-            valor={inscrito.ordenanca}
-            opcoes={OPCOES_ORDENANCA}
-            aoMudar={salvar<Ordenanca | null>("ordenanca")}
-          />
-
-          <ChipDeStatus
-            rotuloDoCampo="Recomendação"
-            valor={inscrito.recomendacaoStatus}
-            opcoes={OPCOES_RECOMENDACAO}
-            aoMudar={salvar<StatusRecomendacao | null>("recomendacaoStatus")}
-          />
-
-          <ChipDeStatus
-            rotuloDoCampo="Agendamento"
-            valor={inscrito.agendamentoStatus}
-            opcoes={OPCOES_AGENDAMENTO}
-            aoMudar={salvar<StatusSimples | null>("agendamentoStatus")}
-          />
-
-          <ChipDeStatus
-            rotuloDoCampo="Nomes"
-            valor={inscrito.nomesDeFamilia}
-            opcoes={OPCOES_NOMES}
-            aoMudar={salvar<NomesDeFamilia | null>("nomesDeFamilia")}
-          />
-        </>
-      )}
-
-      <ChipDeStatus
-        rotuloDoCampo="Pagamento"
-        valor={inscrito.pagamentoStatus}
-        opcoes={OPCOES_PAGAMENTO}
-        aoMudar={salvar<StatusPagamento>("pagamentoStatus")}
-      />
-    </div>
-  );
-}
+// --- Identificação e avisos --------------------------------------------------
 
 function IdentificacaoDoMembro({ inscrito }: { inscrito: InscritoSerializado }) {
   const { membro } = inscrito;

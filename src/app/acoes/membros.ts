@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { lerAutor } from "@/lib/autor";
@@ -142,4 +142,65 @@ export async function anonimizarMembro(id: string) {
 
   revalidatePath("/membros");
   revalidatePath(`/membros/${id}`);
+}
+
+/**
+ * Só a recomendação da ficha: tipo e data impressa. Usada para resolver o aviso
+ * "Precisam de atenção" direto no diálogo da caravana, sem abrir a ficha
+ * inteira.
+ *
+ * Como é dado da ficha, vale para todas as caravanas da pessoa — por isso
+ * invalida todas as páginas de caravana, e não só a que está aberta.
+ * Nada além de tipo e validade entra aqui: dignidade e entrevista são do LCR.
+ */
+export async function atualizarRecomendacaoDoMembro(entrada: {
+  membroId: string;
+  recomendacaoTipo: string;
+  recomendacaoValidaAte: string | null;
+}) {
+  const dados = z
+    .object({
+      membroId: z.string().min(1),
+      recomendacaoTipo: z.enum([
+        "NENHUMA",
+        "USO_LIMITADO",
+        "MEMBRO_INVESTIDO",
+        "ORDENANCAS_PROPRIAS",
+      ]),
+      recomendacaoValidaAte: z.coerce.date().nullable(),
+    })
+    .parse(entrada);
+
+  // Sem recomendação, não existe validade a guardar.
+  const recomendacaoValidaAte =
+    dados.recomendacaoTipo === "NENHUMA" ? null : dados.recomendacaoValidaAte;
+
+  const autor = await lerAutor();
+
+  const antes = await prisma.membro.findUniqueOrThrow({
+    where: { id: dados.membroId },
+    select: { recomendacaoTipo: true, recomendacaoValidaAte: true },
+  });
+
+  const depois = {
+    recomendacaoTipo: dados.recomendacaoTipo,
+    recomendacaoValidaAte,
+  };
+
+  await prisma.membro.update({ where: { id: dados.membroId }, data: depois });
+
+  await registrarAlteracoes({
+    autor,
+    entidade: "Membro",
+    entidadeId: dados.membroId,
+    antes,
+    depois,
+  });
+
+  revalidatePath("/membros");
+  revalidatePath(`/membros/${dados.membroId}`);
+  // Os avisos de recomendação aparecem em qualquer caravana da pessoa.
+  revalidatePath("/(app)/caravanas/[id]", "page");
+  // E a tela aberta agora (o diálogo da caravana) reflete na hora.
+  refresh();
 }

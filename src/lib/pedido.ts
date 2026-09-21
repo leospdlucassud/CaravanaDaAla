@@ -1,4 +1,8 @@
-import { ROTULO_ORDENANCA, type LinhaDoPedidoDeGrupo } from "@/lib/dominio";
+import {
+  nomeDoTemplo,
+  ROTULO_ORDENANCA,
+  type LinhaDoPedidoDeGrupo,
+} from "@/lib/dominio";
 
 /**
  * Texto do pedido de agendamento que a ala envia ao templo.
@@ -43,7 +47,7 @@ export function montarTextoDoPedido(
   });
 
   const linhasDoTexto = [
-    `Prezados irmãos do Templo de ${caravana.templo},`,
+    `Prezados irmãos do ${nomeDoTemplo(caravana.templo)},`,
     "",
     `Somos da ${caravana.unidade} e gostaríamos de agendar uma visita em grupo para ${formatarData(caravana.data)}.`,
     "",

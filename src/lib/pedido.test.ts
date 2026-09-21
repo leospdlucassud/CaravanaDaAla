@@ -47,6 +47,17 @@ describe("montarTextoDoPedido", () => {
   });
 });
 
+describe("nome do templo no pedido", () => {
+  it("não repete \"Templo\" quando a caravana guarda o nome completo", () => {
+    const texto = montarTextoDoPedido(
+      { ...CARAVANA, templo: "Templo do rio de janeiro" },
+      [{ ordenanca: "BATISTERIO", homens: 1, mulheres: 0, semSexoInformado: 0, total: 1 }],
+    );
+    expect(texto).toContain("Prezados irmãos do Templo do Rio de Janeiro,");
+    expect(texto).not.toContain("Templo de Templo");
+  });
+});
+
 describe("pendenciasDeAgendamentoProprio", () => {
   it("lembra que ordenança própria se agenda por telefone, à parte", () => {
     const linhas = pendenciasDeAgendamentoProprio([

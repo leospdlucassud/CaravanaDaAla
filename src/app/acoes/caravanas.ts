@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
 import { aplicarCapacidade, renumerar } from "@/lib/fila";
+import { nomeDoTemplo } from "@/lib/dominio";
 
 /** Muda a situação da caravana (planejamento / confirmada / realizada / cancelada). */
 export async function alterarStatusCaravana(
@@ -55,7 +56,8 @@ const horario = z
 const esquemaDeCaravana = z.object({
   titulo: z.string().trim().min(3, "Dê um título à caravana."),
   data: z.coerce.date(),
-  templo: z.string().trim().min(2, "Informe o templo de destino."),
+  // Guardamos o nome completo e bem escrito ("Templo do Rio de Janeiro").
+  templo: z.string().trim().min(2, "Informe o templo de destino.").transform(nomeDoTemplo),
   unidadeOrganizadoraId: z.string().min(1),
   responsavel: z.string().trim().max(120).nullable().optional(),
   horaSaida: horario,
@@ -215,7 +217,7 @@ export async function duplicarCaravana(
       data: {
         titulo: entrada.titulo,
         data: new Date(entrada.data),
-        templo: original.templo,
+        templo: nomeDoTemplo(original.templo),
         unidadeOrganizadoraId: original.unidadeOrganizadoraId,
         responsavel: original.responsavel,
         horaSaida: original.horaSaida,

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { lerAutor } from "@/lib/autor";
 import { registrarAlteracoes, registrarEvento } from "@/lib/auditoria";
+import { camposDaAtividade } from "@/lib/dominio";
 import {
   moverParaFila,
   promoverDaFila,
@@ -147,6 +148,57 @@ export async function atualizarValoresDoPagamento(entrada: {
 
   revalidatePath(`/caravanas/${antes.caravanaId}`);
   revalidatePath(`/caravanas/${antes.caravanaId}/financeiro`);
+}
+
+/**
+ * O que a pessoa vai fazer no templo: uma ordenança, ou só acompanhar nos
+ * jardins. Na tela é um seletor só; aqui muda participação e ordenança juntas,
+ * para nunca ficar "jardins com ordenança" ou o contrário.
+ */
+export async function definirAtividadeNoTemplo(entrada: {
+  inscricaoId: string;
+  atividade: string | null;
+}) {
+  const dados = z
+    .object({
+      inscricaoId: z.string().min(1),
+      atividade: z
+        .enum([
+          "BATISTERIO",
+          "INICIATORIA",
+          "INVESTIDURA",
+          "PRIMEIRA_INVESTIDURA",
+          "SELAMENTO_CONJUGE",
+          "SELAMENTO_FAMILIA",
+          "JARDINS",
+        ])
+        .nullable(),
+    })
+    .parse(entrada);
+
+  const autor = await lerAutor();
+
+  const antes = await prisma.inscricao.findUniqueOrThrow({
+    where: { id: dados.inscricaoId },
+    select: { participacao: true, ordenanca: true, caravanaId: true },
+  });
+
+  const depois = camposDaAtividade(dados.atividade);
+
+  await prisma.inscricao.update({
+    where: { id: dados.inscricaoId },
+    data: depois,
+  });
+
+  await registrarAlteracoes({
+    autor,
+    entidade: "Inscricao",
+    entidadeId: dados.inscricaoId,
+    antes: { participacao: antes.participacao, ordenanca: antes.ordenanca },
+    depois,
+  });
+
+  revalidatePath(`/caravanas/${antes.caravanaId}`);
 }
 
 // ---------------------------------------------------------------------------

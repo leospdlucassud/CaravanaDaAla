@@ -120,7 +120,8 @@ export default function PaginaDeAjuda() {
       <Secao titulo="4. Criar a caravana">
         <p>
           Menu <strong>Caravanas → Nova caravana</strong>. Informe título, data,
-          templo, <strong>quantos assentos o ônibus tem</strong>, valor por
+          o <strong>nome completo do templo</strong> (ex.: &quot;Templo do Rio de
+          Janeiro&quot;), <strong>quantos assentos o ônibus tem</strong>, valor por
           pessoa e custo do transporte. A capacidade é importante: quando as
           inscrições passam dela, o app manda as próximas para a fila de espera
           automaticamente.
@@ -142,12 +143,48 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="6. A lista de inscritos (o dia a dia)">
+      <Secao titulo="6. O resumo: toque no quadrinho, depois no nome">
+        <p>
+          No alto da caravana ficam os quadrinhos do resumo (Inscritos, Fila de
+          espera, Precisam de atenção, Ordenança a definir…).{" "}
+          <strong>Toque num quadrinho</strong> para ver exatamente quem está por
+          trás daquele número. Depois, <strong>toque num nome</strong>: abre ali
+          mesmo o que resolve aquela pendência.
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <strong>Fila de espera:</strong> botão para promover a pessoa para o
+            ônibus (o app avisa se já estiver lotado).
+          </li>
+          <li>
+            <strong>Precisam de atenção:</strong> troque a ordenança ou corrija a
+            recomendação registrada na ficha (tipo e data impressa).
+          </li>
+          <li>
+            <strong>Ordenança, Recomendação e Agendamento:</strong> a etiqueta
+            daquele item, para escolher ali mesmo.
+          </li>
+          <li>
+            <strong>Inscritos:</strong> todas as etiquetas da pessoa, e o link
+            para a ficha completa.
+          </li>
+        </ul>
+        <p>
+          Quem você resolve <strong>fica na lista com um ✓</strong> — ela não
+          pula debaixo do dedo — e o topo mostra quantos ainda faltam. Os
+          quadrinhos &quot;No pedido ao templo&quot; e &quot;Arrecadado&quot;
+          levam direto às telas de Agendamento e Financeiro.
+        </p>
+      </Secao>
+
+      <Secao titulo="7. A lista de inscritos (o dia a dia)">
         <p>
           É a tela principal da caravana. Cada pessoa tem etiquetas coloridas
           (ordenança, recomendação, agendamento, nomes, pagamento). Para mudar
           qualquer uma: <strong>toque na etiqueta e escolha</strong> — dois
-          toques, salva sozinho.
+          toques, salva sozinho. Em &quot;Ordenança&quot;, a opção{" "}
+          <strong>Só acompanha (jardins)</strong> serve para quem vai no ônibus
+          mas não entra no templo — e dá para voltar atrás a qualquer hora.
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
@@ -168,7 +205,7 @@ export default function PaginaDeAjuda() {
         </ul>
       </Secao>
 
-      <Secao titulo="7. Agendar com o templo">
+      <Secao titulo="8. Agendar com o templo">
         <p>
           Botão <strong>Agendamento</strong>. O app monta o texto pronto — com a
           contagem por ordenança e por sexo — para você copiar e enviar por
@@ -182,7 +219,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="8. Financeiro">
+      <Secao titulo="9. Financeiro">
         <p>
           Botão <strong>Financeiro</strong> (no menu &quot;Mais ações&quot;).
           Mostra total em caixa, custo do ônibus, saldo e o que falta receber.
@@ -192,7 +229,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="9. Mensagens de WhatsApp">
+      <Secao titulo="10. Mensagens de WhatsApp">
         <p>
           Botão <strong>Mensagens de cobrança</strong>. O app agrupa quem tem
           cada pendência e escreve o texto pronto, um por vez, com o link para
@@ -202,7 +239,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="10. Preparação e acompanhantes">
+      <Secao titulo="11. Preparação e acompanhantes">
         <p>
           Botão <strong>Preparação e acompanhantes</strong>. Traz o checklist da
           primeira investidura (lembrete de logística, não registro de
@@ -212,7 +249,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="11. Embarque (no dia)">
+      <Secao titulo="12. Embarque (no dia)">
         <p>
           Botão <strong>Embarque</strong>. Toque no nome de cada pessoa para
           marcar quem está no ônibus, na <strong>ida</strong> e na
@@ -223,7 +260,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="12. Lista de presença e planilha">
+      <Secao titulo="13. Lista de presença e planilha">
         <p>
           No menu &quot;Mais ações&quot;: <strong>Lista de presença</strong> gera
           uma folha para imprimir (ou salvar em PDF) e levar no ônibus, com
@@ -232,7 +269,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="13. Repetir uma caravana">
+      <Secao titulo="14. Repetir uma caravana">
         <p>
           Botão <strong>Duplicar</strong> traz as mesmas pessoas para uma nova
           caravana, com os status zerados — o que é permanente (recomendação,
@@ -242,7 +279,7 @@ export default function PaginaDeAjuda() {
         </p>
       </Secao>
 
-      <Secao titulo="14. Aparência e atualizações">
+      <Secao titulo="15. Aparência e atualizações">
         <p>
           No ícone de letra (canto superior), ajuste <strong>tema</strong>
           {" "}(claro/escuro/sistema) e o <strong>tamanho da letra</strong> — útil

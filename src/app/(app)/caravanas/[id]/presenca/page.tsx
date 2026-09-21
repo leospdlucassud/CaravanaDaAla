@@ -3,7 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { ROTULO_ORDENANCA, ROTULO_ORGANIZACAO_CURTO } from "@/lib/dominio";
+import {
+  nomeDoTemplo,
+  ROTULO_ORDENANCA,
+  ROTULO_ORGANIZACAO_CURTO,
+} from "@/lib/dominio";
 import { BotaoImprimir } from "@/components/botao-imprimir";
 import { Button } from "@/components/ui/button";
 
@@ -93,7 +97,7 @@ export default async function PaginaDePresenca({
         <header className="border-b pb-3">
           <h2 className="text-xl font-bold">{caravana.titulo}</h2>
           <p className="text-sm">
-            {dataPorExtenso} · Templo de {caravana.templo}
+            {dataPorExtenso} · {nomeDoTemplo(caravana.templo)}
           </p>
           <p className="text-sm">
             {caravana.horaSaida ? `Saída às ${caravana.horaSaida}` : "Saída a definir"}

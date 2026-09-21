@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  atividadeDaInscricao,
   avisoDeRecomendacaoParaOrdenanca,
+  camposDaAtividade,
   caravanaEstaAtiva,
+  nomeDoTemplo,
   elegivelParaBatisterio,
   entraNoPedidoDeGrupo,
   exigeAgendamentoProprio,
@@ -157,5 +160,73 @@ describe("pedido de agendamento em grupo", () => {
     ]);
     expect(linha.semSexoInformado).toBe(1);
     expect(linha.homens + linha.mulheres).toBe(0);
+  });
+});
+
+describe("nomeDoTemplo", () => {
+  it("não duplica o \"Templo\" quando o nome já vem completo", () => {
+    // O defeito original: a tela colava "Templo de" na frente do nome completo.
+    expect(nomeDoTemplo("Templo do rio de janeiro")).toBe("Templo do Rio de Janeiro");
+    expect(nomeDoTemplo("Templo do rio de janeiro")).not.toContain("Templo de Templo");
+  });
+
+  it("completa o prefixo quando só veio a cidade", () => {
+    expect(nomeDoTemplo("Campinas")).toBe("Templo de Campinas");
+  });
+
+  it("usa \"do\" para o Rio, como se fala em português", () => {
+    expect(nomeDoTemplo("Rio de Janeiro")).toBe("Templo do Rio de Janeiro");
+    expect(nomeDoTemplo("rio de janeiro")).toBe("Templo do Rio de Janeiro");
+    // A regra olha a palavra inteira: "Riozinho" não é "Rio".
+    expect(nomeDoTemplo("Riozinho")).toBe("Templo de Riozinho");
+  });
+
+  it("aceita qualquer caixa e espaço sobrando", () => {
+    expect(nomeDoTemplo("  TEMPLO   do  Rio de Janeiro ")).toBe(
+      "Templo do Rio de Janeiro",
+    );
+  });
+
+  it("é idempotente — aplicar duas vezes não muda nada", () => {
+    for (const nome of ["Templo do rio de janeiro", "Campinas", "Rio de Janeiro", "Templo de São Paulo Brasil"]) {
+      expect(nomeDoTemplo(nomeDoTemplo(nome))).toBe(nomeDoTemplo(nome));
+    }
+  });
+
+  it("devolve vazio para texto vazio", () => {
+    expect(nomeDoTemplo("   ")).toBe("");
+  });
+});
+
+describe("atividade no templo", () => {
+  it("jardins vira participação de acompanhante, sem ordenança", () => {
+    expect(camposDaAtividade("JARDINS")).toEqual({
+      participacao: "ACOMPANHANTE_JARDINS",
+      ordenanca: null,
+    });
+  });
+
+  it("uma ordenança volta a ser participação de ordenança", () => {
+    // Antes não havia como sair de "jardins" pela tela; esta é a volta.
+    expect(camposDaAtividade("BATISTERIO")).toEqual({
+      participacao: "ORDENANCA",
+      ordenanca: "BATISTERIO",
+    });
+  });
+
+  it("pendente continua pendente", () => {
+    expect(camposDaAtividade(null)).toEqual({ participacao: "ORDENANCA", ordenanca: null });
+  });
+
+  it("ida e volta dão o mesmo resultado", () => {
+    for (const atividade of ["JARDINS", "INVESTIDURA", null] as const) {
+      expect(atividadeDaInscricao(camposDaAtividade(atividade))).toBe(atividade);
+    }
+  });
+
+  it("quem está nos jardins aparece como jardins, mesmo com ordenança antiga gravada", () => {
+    expect(
+      atividadeDaInscricao({ participacao: "ACOMPANHANTE_JARDINS", ordenanca: "BATISTERIO" }),
+    ).toBe("JARDINS");
   });
 });

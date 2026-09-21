@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { AcoesDaCaravana } from "@/components/acoes-da-caravana";
-import { carregarInscritos, resumir } from "@/lib/consultas";
+import { carregarInscritos } from "@/lib/consultas";
+import { resumir } from "@/lib/resumo";
 import {
   caravanaEstaAtiva,
+  nomeDoTemplo,
   ROTULO_STATUS_CARAVANA,
   rotuloGrupoCaravana,
 } from "@/lib/dominio";
-import {
-  ListaDeInscritos,
-  type InscritoSerializado,
-} from "@/components/lista-de-inscritos";
+import { ListaDeInscritos } from "@/components/lista-de-inscritos";
+import type { InscritoSerializado } from "@/components/inscrito-serializado";
 import { Badge } from "@/components/ui/badge";
 import { ContadoresDaCaravana } from "@/components/contadores-da-caravana";
 
@@ -76,6 +76,10 @@ export default async function PaginaDaCaravana({
       ehDeOutraUnidade: i.membro.unidadeId !== caravana.unidadeOrganizadoraId,
       tipoVinculo: i.membro.tipoVinculo,
       recemConverso: i.membro.recemConverso,
+      recomendacaoTipo: i.membro.recomendacaoTipo,
+      recomendacaoValidaAte: i.membro.recomendacaoValidaAte
+        ? i.membro.recomendacaoValidaAte.toISOString().slice(0, 10)
+        : null,
     },
   });
 
@@ -103,7 +107,7 @@ export default async function PaginaDaCaravana({
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="size-4" aria-hidden="true" />
-                Templo de {caravana.templo}
+                {nomeDoTemplo(caravana.templo)}
               </span>
               {caravana.horaSaida ? (
                 <span className="flex items-center gap-1.5">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { ROTULO_ORDENANCA, ROTULO_SITUACAO } from "@/lib/dominio";
+import { nomeDoTemplo, ROTULO_ORDENANCA, ROTULO_SITUACAO } from "@/lib/dominio";
 import { FormularioDeMembro } from "@/components/formulario-de-membro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +100,7 @@ export default async function PaginaDoMembro({
                         year: "numeric",
                         timeZone: "UTC",
                       }).format(inscricao.caravana.data)}{" "}
-                      · Templo de {inscricao.caravana.templo}
+                      · {nomeDoTemplo(inscricao.caravana.templo)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

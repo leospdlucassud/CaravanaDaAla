@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, MapPin, Users } from "lucide-react";
-import { caravanaEstaAtiva, rotuloGrupoCaravana, ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
+import {
+  caravanaEstaAtiva,
+  nomeDoTemplo,
+  rotuloGrupoCaravana,
+  ROTULO_STATUS_CARAVANA,
+} from "@/lib/dominio";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -122,7 +127,7 @@ export function ListaDeCaravanas({ caravanas }: { caravanas: CaravanaNaLista[] }
                           className="text-muted-foreground size-4 shrink-0"
                           aria-hidden="true"
                         />
-                        Templo de {caravana.templo}
+                        {nomeDoTemplo(caravana.templo)}
                       </p>
                       <div className="space-y-1.5">
                         <p className="flex items-center gap-2">
