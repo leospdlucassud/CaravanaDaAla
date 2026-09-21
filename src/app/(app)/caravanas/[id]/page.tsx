@@ -13,7 +13,7 @@ import {
   type InscritoSerializado,
 } from "@/components/lista-de-inscritos";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { ContadoresDaCaravana } from "@/components/contadores-da-caravana";
 
 export async function generateMetadata({
   params,
@@ -29,40 +29,6 @@ export async function generateMetadata({
   }
 }
 
-function Contador({
-  rotulo,
-  valor,
-  detalhe,
-  destaque,
-}: {
-  rotulo: string;
-  valor: string | number;
-  detalhe?: string;
-  destaque?: "alerta" | "ok";
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-muted-foreground text-sm">{rotulo}</p>
-        <p
-          className={
-            destaque === "alerta"
-              ? "text-2xl font-semibold text-red-600 tabular-nums dark:text-red-400"
-              : destaque === "ok"
-                ? "text-2xl font-semibold text-emerald-600 tabular-nums dark:text-emerald-400"
-                : "text-2xl font-semibold tabular-nums"
-          }
-        >
-          {valor}
-        </p>
-        {detalhe ? (
-          <p className="text-muted-foreground text-xs">{detalhe}</p>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
 const formatarData = (data: Date) =>
   new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -71,9 +37,6 @@ const formatarData = (data: Date) =>
     year: "numeric",
     timeZone: "UTC",
   }).format(data);
-
-const formatarDinheiro = (valor: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 
 export default async function PaginaDaCaravana({
   params,
@@ -157,52 +120,12 @@ export default async function PaginaDaCaravana({
       </header>
 
       <section aria-label="Resumo da caravana">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Contador
-            rotulo="Inscritos"
-            valor={`${resumo.confirmados}/${resumo.capacidade}`}
-            detalhe={
-              resumo.vagasRestantes > 0
-                ? `${resumo.vagasRestantes} vaga(s) livre(s)`
-                : "Ônibus lotado"
-            }
-          />
-          <Contador
-            rotulo="Fila de espera"
-            valor={resumo.naFila}
-            detalhe={resumo.naFila > 0 ? "Sobem se alguém desistir" : "Ninguém esperando"}
-          />
-          <Contador
-            rotulo="Precisam de atenção"
-            valor={resumo.comAvisoAlto}
-            destaque={resumo.comAvisoAlto > 0 ? "alerta" : "ok"}
-            detalhe="Podem ser barrados no templo"
-          />
-          <Contador
-            rotulo="No pedido ao templo"
-            valor={resumo.noPedidoDeGrupo}
-            detalhe="Sem as ordenanças próprias"
-          />
-          <Contador
-            rotulo="Ordenança a definir"
-            valor={resumo.ordenancaPendente}
-            destaque={resumo.ordenancaPendente > 0 ? "alerta" : "ok"}
-          />
-          <Contador
-            rotulo="Recomendação a conferir"
-            valor={resumo.recomendacaoPendente}
-          />
-          <Contador rotulo="Agendamento a confirmar" valor={resumo.agendamentoPendente} />
-          <Contador
-            rotulo="Arrecadado"
-            valor={formatarDinheiro(resumo.totalArrecadado)}
-            detalhe={
-              resumo.custoTotal > 0
-                ? `de ${formatarDinheiro(resumo.custoTotal)} de custo`
-                : `${resumo.pagamentoPendente} pagamento(s) pendente(s)`
-            }
-          />
-        </div>
+        <ContadoresDaCaravana
+          caravanaId={caravana.id}
+          resumo={resumo}
+          confirmados={confirmados}
+          naFila={naFila}
+        />
       </section>
 
       <ListaDeInscritos
