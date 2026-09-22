@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ANOS_DE_VALIDADE, ROTULO_RECOMENDACAO_TIPO } from "@/lib/dominio";
 import type { RecomendacaoTipo } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 /**
  * Recomendação da ficha do membro — só o tipo e a data impressa nela.
@@ -50,9 +51,7 @@ export function FormRecomendacaoDoMembro({
         });
         toast.success(`Recomendação de ${nome} atualizada na ficha.`);
       } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Não foi possível salvar a recomendação.",
-        );
+        toast.error(mensagemDeFalha(e, "salvar a recomendação"));
       }
     });
   }
@@ -78,7 +77,7 @@ export function FormRecomendacaoDoMembro({
             id={idTipo}
             value={tipo}
             onChange={(e) => setTipo(e.target.value as RecomendacaoTipo)}
-            className="border-input bg-background h-11 w-full rounded-md border px-3 text-sm"
+            className="border-input bg-background h-11 w-full rounded-md border px-3 text-base md:text-sm"
           >
             {(Object.keys(ROTULO_RECOMENDACAO_TIPO) as RecomendacaoTipo[]).map((t) => (
               <option key={t} value={t}>
@@ -107,7 +106,9 @@ export function FormRecomendacaoDoMembro({
         <p className="text-muted-foreground text-xs">
           Costuma valer {anos} {anos === 1 ? "ano" : "anos"} — mas use a data
           impressa na recomendação.
-          {faltaData ? " Sem a data, o app não consegue avisar do vencimento." : ""}
+          {faltaData
+            ? " Sem a data, o app não tem como confirmar a validade — a pessoa segue em “Precisam de atenção”."
+            : ""}
         </p>
       ) : null}
 
@@ -115,7 +116,7 @@ export function FormRecomendacaoDoMembro({
         type="submit"
         size="sm"
         disabled={salvando || !mudou}
-        className="min-h-11"
+        className="h-auto min-h-11 w-full whitespace-normal sm:w-auto"
       >
         {salvando ? "Salvando..." : "Salvar recomendação"}
       </Button>

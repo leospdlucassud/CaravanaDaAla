@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ROTULO_STATUS_CARAVANA } from "@/lib/dominio";
 import type { StatusCaravana } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 export type ValoresDaCaravana = {
   titulo: string;
@@ -113,9 +114,7 @@ export function FormularioDeCaravana({
       } catch (e) {
         // redirect() do Next atravessa como erro; não é falha de verdade.
         if (e instanceof Error && e.message.includes("NEXT_REDIRECT")) throw e;
-        setErro(
-          e instanceof Error ? e.message : "Não foi possível salvar a caravana.",
-        );
+        setErro(mensagemDeFalha(e, "salvar a caravana"));
       }
     });
   }

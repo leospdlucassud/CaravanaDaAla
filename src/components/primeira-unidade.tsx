@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { mensagemDeFalha } from "@/lib/falha";
 
 /**
  * Nenhuma unidade é fixada em código: a instalação cadastra a sua na primeira
@@ -32,9 +33,7 @@ export function PrimeiraUnidade() {
         toast.success(`Unidade ${unidade.nome} cadastrada.`);
         router.refresh();
       } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Não foi possível criar a unidade.",
-        );
+        toast.error(mensagemDeFalha(e, "criar a unidade"));
       }
     });
   }

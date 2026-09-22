@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { mensagemDeFalha } from "@/lib/falha";
 
 const ITENS_DO_CHECKLIST: Array<{ campo: CampoDoChecklist; rotulo: string }> = [
   {
@@ -91,7 +92,7 @@ export function PainelDePreparacao({
         toast.success("Acompanhante salvo.");
       } catch (e) {
         setAcompanhantes((atual) => ({ ...atual, [inscricaoId]: anterior }));
-        toast.error(e instanceof Error ? e.message : "Não deu para salvar.");
+        toast.error(mensagemDeFalha(e, "salvar o acompanhante"));
       }
     });
   }

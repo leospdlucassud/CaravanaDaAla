@@ -20,6 +20,7 @@ import {
   rotuloGrupoCaravana,
 } from "@/lib/dominio";
 import type { StatusCaravana } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 const STATUS: StatusCaravana[] = [
   "PLANEJAMENTO",
@@ -50,7 +51,7 @@ export function AlterarSituacaoCaravana({
         setAberto(false);
         router.refresh();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Não foi possível alterar.");
+        toast.error(mensagemDeFalha(e, "alterar a situação"));
       }
     });
   }

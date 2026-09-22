@@ -11,7 +11,7 @@
  * carregou; o servidor, após um novo deploy, passa a responder a versão nova.
  * É essa diferença que o verificador usa para saber que há atualização.
  */
-export const VERSAO = "1.3.0";
+export const VERSAO = "1.3.1";
 
 /** [major, minor, patch] ou null se o texto não for uma versão válida. */
 export function analisarVersao(v: string): [number, number, number] | null {

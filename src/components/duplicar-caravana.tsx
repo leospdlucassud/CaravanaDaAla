@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { mensagemDeFalha } from "@/lib/falha";
 
 /**
  * Duplica a caravana trazendo as mesmas pessoas com os status por-viagem
@@ -37,7 +38,7 @@ export function DuplicarCaravana({ caravanaId }: { caravanaId: string }) {
       } catch (e) {
         // O redirect do Next atravessa como erro; não é falha de verdade.
         if (e instanceof Error && e.message.includes("NEXT_REDIRECT")) throw e;
-        toast.error(e instanceof Error ? e.message : "Não foi possível duplicar.");
+        toast.error(mensagemDeFalha(e, "duplicar"));
       }
     });
   }

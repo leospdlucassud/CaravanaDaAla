@@ -23,6 +23,7 @@ import type {
   Sexo,
   TipoVinculo,
 } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 export type ValoresDoMembro = {
   nomeCompleto: string;
@@ -117,7 +118,7 @@ export function FormularioDeMembro({
           router.push("/membros");
         }
       } catch (e) {
-        setErro(e instanceof Error ? e.message : "Não foi possível salvar.");
+        setErro(mensagemDeFalha(e, "salvar"));
       }
     });
   }

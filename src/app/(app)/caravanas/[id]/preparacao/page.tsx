@@ -39,6 +39,7 @@ export default async function PaginaDePreparacao({
         orderBy: { ordem: "asc" },
         select: {
           id: true,
+          participacao: true,
           ordenanca: true,
           acompanhanteId: true,
           checklistPrimeiraInvestidura: true,
@@ -99,6 +100,8 @@ export default async function PaginaDePreparacao({
         .filter(
           (candidato) =>
             candidato.id !== i.id &&
+            // Quem fica nos jardins não entra na sessão — não acompanha ninguém.
+            candidato.participacao === "ORDENANCA" &&
             // Mesmo sexo, como o Manual pede; se o sexo não foi informado,
             // aparece mesmo assim — é sugestão, não trava.
             (!i.membro.sexo ||

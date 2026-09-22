@@ -48,8 +48,10 @@ Menu **Membros → Novo membro**. Campos:
 - **Investidura:** "Sem investidura" ou "Já recebeu a investidura".
 - **Recém-converso:** batizado há menos de 2 anos (pode também já ser
   investido).
-- **Recomendação:** apenas o tipo e a data de validade impressa. O app nunca
-  pede motivo de dignidade nem conteúdo de entrevista — isso é do LCR.
+- **Recomendação:** apenas o tipo e a data de validade impressa. Sem a data, a
+  pessoa aparece em "Precisam de atenção" — o app não tem como saber se ela
+  vale. O app nunca pede motivo de dignidade nem conteúdo de entrevista — isso
+  é do LCR.
 
 ## 4. Criar a caravana
 
@@ -83,9 +85,14 @@ ali mesmo o que resolve aquela pendência.
   escolher ali mesmo.
 - **Inscritos:** todas as etiquetas da pessoa, e o link para a ficha completa.
 
-Quem você resolve **fica na lista com um ✓** — ela não pula debaixo do dedo — e
-o topo mostra quantos ainda faltam. Os quadrinhos "No pedido ao templo" e
-"Arrecadado" levam direto às telas de Agendamento e Financeiro.
+Quem você resolve **continua na lista** — ela não pula debaixo do dedo — com o
+resultado ao lado: **✓ verde** quando ficou tudo certo; **amarelo ou vermelho**
+quando o que foi registrado ainda é um problema (ex.: recomendação vencida). O
+topo mostra quantos ainda faltam. Na fila de espera, o topo mostra quantos
+esperam e quantas vagas há — promover todo mundo lotaria o ônibus.
+
+Os quadrinhos "No pedido ao templo" e "Arrecadado" levam direto às telas de
+Agendamento e Financeiro.
 
 ## 7. A lista de inscritos (o dia a dia)
 
@@ -93,7 +100,8 @@ Tela principal da caravana. Cada pessoa tem etiquetas (ordenança, recomendaçã
 agendamento, nomes, pagamento). Para mudar: **toque na etiqueta e escolha** —
 dois toques, salva sozinho. Em "Ordenança", a opção **Só acompanha (jardins)**
 serve para quem vai no ônibus mas não entra no templo — e dá para voltar atrás a
-qualquer hora.
+qualquer hora. Se a pessoa era acompanhante de alguém, o app desfaz o vínculo e
+avisa: escolha outro acompanhante em Preparação.
 
 - Filtros para ver **só quem tem pendência** ou **só quem tem aviso**.
 - Avisos em vermelho = a pessoa pode ser barrada no templo. Resolva antes.

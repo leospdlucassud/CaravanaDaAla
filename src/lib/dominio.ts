@@ -357,21 +357,45 @@ export function montarPedidoDeGrupo(
  * O cadastro guarda o nome completo ("Templo do Rio de Janeiro"). Antes, as
  * telas colavam "Templo de" na frente do que estava gravado — e quem digitava o
  * nome completo via "Templo de Templo do rio de janeiro". Aqui: se já começa
- * com "Templo", fica como está; senão, ganha o prefixo. A capitalização é
- * normalizada ("rio de janeiro" → "Rio de Janeiro").
+ * com "Templo", fica como está; senão, ganha o prefixo.
  *
- * O prefixo é "de" ("Templo de Campinas"), exceto para o Rio, que em português
- * leva artigo: "Templo do Rio de Janeiro". Nos demais casos vale o nome
+ * O prefixo é "de" ("Templo de Campinas"), exceto para o Rio de Janeiro, que
+ * em português leva artigo: "Templo do Rio de Janeiro". ("Rio Branco" e "Rio
+ * Verde" não levam: "Templo de Rio Branco".) Nos demais casos vale o nome
  * completo digitado no cadastro.
  *
  * Idempotente: aplicar duas vezes dá o mesmo resultado.
  */
 export function nomeDoTemplo(templo: string): string {
-  const limpo = templo.replace(/\s+/g, " ").trim();
-  if (!limpo) return "";
-  if (/^templo\b/i.test(limpo)) return capitalizarNome(limpo);
-  const preposicao = /^rio\b/i.test(limpo) ? "do" : "de";
-  return capitalizarNome(`Templo ${preposicao} ${limpo}`);
+  const digitado = templo.replace(/\s+/g, " ").trim();
+  if (!digitado) return "";
+  // Tudo em caixa alta ("CAMPINAS SP") não diz nada sobre a grafia: vira
+  // "Campinas Sp" e segue. Qualquer outra mistura é respeitada.
+  const limpo =
+    digitado === digitado.toLocaleUpperCase("pt-BR") ? capitalizarNome(digitado) : digitado;
+  if (/^templo\b/i.test(limpo)) return capitalizarTemplo(limpo);
+  const preposicao = /^rio de janeiro\b/i.test(limpo) ? "do" : "de";
+  return capitalizarTemplo(`Templo ${preposicao} ${limpo}`);
+}
+
+/**
+ * Conserta só as palavras que vieram todas minúsculas: "rio de janeiro" →
+ * "Rio de Janeiro". Palavra que já tem maiúscula fica como foi digitada —
+ * "D.C.", "SP", "McAllen" e "Papua-Nova Guiné" não podem ser desfeitos.
+ */
+function capitalizarTemplo(nome: string): string {
+  const [primeira, ...resto] = nome.split(" ");
+  const particulas = new Set(["de", "da", "do", "das", "dos", "e"]);
+  const ajustadas = resto.map((palavra) => {
+    const minuscula = palavra === palavra.toLocaleLowerCase("pt-BR");
+    if (!minuscula || particulas.has(palavra)) return palavra;
+    return palavra.charAt(0).toLocaleUpperCase("pt-BR") + palavra.slice(1);
+  });
+  // "templo" / "TEMPLO" / "Templo" → sempre "Templo".
+  const inicio = /^templo$/i.test(primeira)
+    ? "Templo"
+    : primeira.charAt(0).toLocaleUpperCase("pt-BR") + primeira.slice(1);
+  return [inicio, ...ajustadas].join(" ");
 }
 
 // ---------------------------------------------------------------------------

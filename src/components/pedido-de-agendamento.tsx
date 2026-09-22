@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ROTULO_ORDENANCA, type LinhaDoPedidoDeGrupo } from "@/lib/dominio";
 import type { CanalAgendamento, Ordenanca } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 export function PedidoDeAgendamento({
   caravanaId,
@@ -74,7 +75,7 @@ export function PedidoDeAgendamento({
         });
         toast.success("Agendamento salvo.");
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+        toast.error(mensagemDeFalha(e, "salvar"));
       }
     });
   }

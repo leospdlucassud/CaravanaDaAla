@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SituacaoInscricao } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 type Confirmacao = "desistencia" | "remover";
 
@@ -58,7 +59,7 @@ export function AcoesDaInscricao({
         aoDarCerto();
         router.refresh();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
+        toast.error(mensagemDeFalha(e, "concluir"));
       }
     });
   }
@@ -80,7 +81,7 @@ export function AcoesDaInscricao({
         setConfirmacao(null);
         router.refresh();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Não foi possível concluir.");
+        toast.error(mensagemDeFalha(e, "concluir"));
       }
     });
   }

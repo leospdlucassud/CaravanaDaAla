@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -53,6 +53,8 @@ export function ChipDeStatus<T extends string | null>({
 }) {
   const [valorVisivel, setValorVisivel] = useState<T>(valor);
   const [salvando, iniciarTransicao] = useTransition();
+  const [aberto, setAberto] = useState(false);
+  const ultimoPonteiro = useRef("mouse");
 
   const selecionada =
     opcoes.find((o) => o.valor === valorVisivel) ?? opcoes.find((o) => o.valor === null);
@@ -89,8 +91,19 @@ export function ChipDeStatus<T extends string | null>({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={aberto} onOpenChange={setAberto}>
       <DropdownMenuTrigger
+        // O Radix abre o menu no instante em que o dedo encosta — e um gesto de
+        // rolar a lista que começasse num chip abria o menu e travava a rolagem.
+        // No toque, o menu só abre no "click", que o navegador não dispara
+        // quando o dedo arrasta. Mouse e teclado seguem como o Radix faz.
+        onPointerDown={(evento) => {
+          ultimoPonteiro.current = evento.pointerType;
+          if (evento.pointerType !== "mouse") evento.preventDefault();
+        }}
+        onClick={() => {
+          if (ultimoPonteiro.current !== "mouse") setAberto(true);
+        }}
         className={cn(
           "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
           "focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-none",

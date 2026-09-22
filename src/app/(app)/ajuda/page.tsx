@@ -111,8 +111,10 @@ export default function PaginaDeAjuda() {
           </li>
           <li>
             <strong>Recomendação:</strong> guarde apenas o tipo e a data de
-            validade impressa na recomendação. O app nunca pede motivo de
-            dignidade nem conteúdo de entrevista — isso é do LCR.
+            validade impressa na recomendação. Sem a data, a pessoa aparece em
+            &quot;Precisam de atenção&quot; — o app não tem como saber se ela
+            vale. O app nunca pede motivo de dignidade nem conteúdo de
+            entrevista — isso é do LCR.
           </li>
         </ul>
       </Secao>
@@ -170,9 +172,16 @@ export default function PaginaDeAjuda() {
           </li>
         </ul>
         <p>
-          Quem você resolve <strong>fica na lista com um ✓</strong> — ela não
-          pula debaixo do dedo — e o topo mostra quantos ainda faltam. Os
-          quadrinhos &quot;No pedido ao templo&quot; e &quot;Arrecadado&quot;
+          Quem você resolve <strong>continua na lista</strong> — ela não pula
+          debaixo do dedo — com o resultado ao lado: <strong>✓ verde</strong>{" "}
+          quando ficou tudo certo; <strong>amarelo ou vermelho</strong> quando o
+          que foi registrado ainda é um problema (ex.: recomendação vencida). O
+          topo mostra quantos ainda faltam. Na fila de espera, o topo mostra
+          quantos esperam e quantas vagas há — promover todo mundo lotaria o
+          ônibus.
+        </p>
+        <p>
+          Os quadrinhos &quot;No pedido ao templo&quot; e &quot;Arrecadado&quot;
           levam direto às telas de Agendamento e Financeiro.
         </p>
       </Secao>
@@ -184,7 +193,9 @@ export default function PaginaDeAjuda() {
           qualquer uma: <strong>toque na etiqueta e escolha</strong> — dois
           toques, salva sozinho. Em &quot;Ordenança&quot;, a opção{" "}
           <strong>Só acompanha (jardins)</strong> serve para quem vai no ônibus
-          mas não entra no templo — e dá para voltar atrás a qualquer hora.
+          mas não entra no templo — e dá para voltar atrás a qualquer hora. Se
+          a pessoa era acompanhante de alguém, o app desfaz o vínculo e avisa:
+          escolha outro acompanhante em Preparação.
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>

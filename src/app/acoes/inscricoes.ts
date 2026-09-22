@@ -177,28 +177,68 @@ export async function definirAtividadeNoTemplo(entrada: {
     .parse(entrada);
 
   const autor = await lerAutor();
-
-  const antes = await prisma.inscricao.findUniqueOrThrow({
-    where: { id: dados.inscricaoId },
-    select: { participacao: true, ordenanca: true, caravanaId: true },
-  });
-
   const depois = camposDaAtividade(dados.atividade);
 
-  await prisma.inscricao.update({
-    where: { id: dados.inscricaoId },
-    data: depois,
+  const { caravanaId, acompanhadosDesfeitos } = await prisma.$transaction(async (tx) => {
+    const antes = await tx.inscricao.findUniqueOrThrow({
+      where: { id: dados.inscricaoId },
+      select: {
+        participacao: true,
+        ordenanca: true,
+        caravanaId: true,
+        membro: { select: { nomeCompleto: true } },
+      },
+    });
+
+    await tx.inscricao.update({ where: { id: dados.inscricaoId }, data: depois });
+
+    await registrarAlteracoes({
+      autor,
+      entidade: "Inscricao",
+      entidadeId: dados.inscricaoId,
+      antes: { participacao: antes.participacao, ordenanca: antes.ordenanca },
+      depois,
+      cliente: tx,
+    });
+
+    // Quem fica nos jardins não entra na sessão: não pode seguir designado como
+    // acompanhante de primeira investidura ou de recém-converso. O vínculo é
+    // desfeito — senão a tela de Preparação dá a pessoa como acompanhada.
+    const acompanhados =
+      depois.participacao === "ACOMPANHANTE_JARDINS"
+        ? await tx.inscricao.findMany({
+            where: { acompanhanteId: dados.inscricaoId },
+            select: { id: true, membro: { select: { nomeCompleto: true } } },
+          })
+        : [];
+
+    for (const acompanhado of acompanhados) {
+      await tx.inscricao.update({
+        where: { id: acompanhado.id },
+        data: { acompanhanteId: null },
+      });
+      await registrarEvento({
+        autor,
+        entidade: "Inscricao",
+        entidadeId: acompanhado.id,
+        campo: "acompanhante",
+        descricao: `Acompanhante de ${acompanhado.membro.nomeCompleto} removido: ${antes.membro.nomeCompleto} vai ficar nos jardins`,
+        cliente: tx,
+      });
+    }
+
+    return {
+      caravanaId: antes.caravanaId,
+      acompanhadosDesfeitos: acompanhados.map((a) => a.membro.nomeCompleto),
+    };
   });
 
-  await registrarAlteracoes({
-    autor,
-    entidade: "Inscricao",
-    entidadeId: dados.inscricaoId,
-    antes: { participacao: antes.participacao, ordenanca: antes.ordenanca },
-    depois,
-  });
+  revalidatePath(`/caravanas/${caravanaId}`);
+  if (acompanhadosDesfeitos.length > 0) {
+    revalidatePath(`/caravanas/${caravanaId}/preparacao`);
+  }
 
-  revalidatePath(`/caravanas/${antes.caravanaId}`);
+  return { acompanhadosDesfeitos };
 }
 
 // ---------------------------------------------------------------------------

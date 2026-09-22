@@ -174,11 +174,31 @@ describe("nomeDoTemplo", () => {
     expect(nomeDoTemplo("Campinas")).toBe("Templo de Campinas");
   });
 
-  it("usa \"do\" para o Rio, como se fala em português", () => {
+  it("usa \"do\" para o Rio de Janeiro, como se fala em português", () => {
     expect(nomeDoTemplo("Rio de Janeiro")).toBe("Templo do Rio de Janeiro");
     expect(nomeDoTemplo("rio de janeiro")).toBe("Templo do Rio de Janeiro");
-    // A regra olha a palavra inteira: "Riozinho" não é "Rio".
+  });
+
+  it("não põe artigo nas outras cidades que começam com Rio", () => {
+    expect(nomeDoTemplo("Rio Branco")).toBe("Templo de Rio Branco");
+    expect(nomeDoTemplo("Rio Verde")).toBe("Templo de Rio Verde");
     expect(nomeDoTemplo("Riozinho")).toBe("Templo de Riozinho");
+  });
+
+  it("não desfaz a grafia de quem digitou com maiúsculas", () => {
+    expect(nomeDoTemplo("Templo de Washington D.C.")).toBe("Templo de Washington D.C.");
+    expect(nomeDoTemplo("Templo de Campinas - SP")).toBe("Templo de Campinas - SP");
+    expect(nomeDoTemplo("Templo de McAllen Texas")).toBe("Templo de McAllen Texas");
+    expect(nomeDoTemplo("Templo de Porto Moresby Papua-Nova Guiné")).toBe(
+      "Templo de Porto Moresby Papua-Nova Guiné",
+    );
+    expect(nomeDoTemplo("Templo da Cidade do México")).toBe("Templo da Cidade do México");
+  });
+
+  it("conserta o que veio todo em maiúsculas", () => {
+    expect(nomeDoTemplo("TEMPLO DE CAMPINAS")).toBe("Templo de Campinas");
+    expect(nomeDoTemplo("RIO DE JANEIRO")).toBe("Templo do Rio de Janeiro");
+    expect(nomeDoTemplo("CAMPINAS")).toBe("Templo de Campinas");
   });
 
   it("aceita qualquer caixa e espaço sobrando", () => {
@@ -188,7 +208,16 @@ describe("nomeDoTemplo", () => {
   });
 
   it("é idempotente — aplicar duas vezes não muda nada", () => {
-    for (const nome of ["Templo do rio de janeiro", "Campinas", "Rio de Janeiro", "Templo de São Paulo Brasil"]) {
+    for (const nome of [
+      "Templo do rio de janeiro",
+      "Campinas",
+      "Rio de Janeiro",
+      "Rio Branco",
+      "Templo de São Paulo Brasil",
+      "Templo de Washington D.C.",
+      "TEMPLO DE CAMPINAS",
+      "templo",
+    ]) {
       expect(nomeDoTemplo(nomeDoTemplo(nome))).toBe(nomeDoTemplo(nome));
     }
   });

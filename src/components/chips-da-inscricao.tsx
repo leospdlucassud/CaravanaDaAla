@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import {
   atualizarCampoDaInscricao,
   definirAtividadeNoTemplo,
@@ -44,6 +45,12 @@ export const OPCOES_ATIVIDADE: OpcaoDeChip<AtividadeNoTemplo>[] = [
   })),
   { valor: "JARDINS", rotulo: "Só acompanha (jardins)", tom: "neutro" },
 ];
+
+/**
+ * Sem "Pendente": para quem está em "Precisam de atenção", apagar a ordenança
+ * tiraria o aviso sem resolver nada — a pessoa só mudaria de quadrinho.
+ */
+export const OPCOES_ATIVIDADE_DEFINIDA = OPCOES_ATIVIDADE.filter((o) => o.valor !== null);
 
 export const OPCOES_RECOMENDACAO: OpcaoDeChip<StatusRecomendacao | null>[] = [
   { valor: null, rotulo: "Pendente", tom: "atencao" },
@@ -107,16 +114,28 @@ function salvarCampo(inscricaoId: string, campo: CampoSimples) {
 }
 
 /** Ordenança — ou "só acompanha nos jardins", para quem não entra no templo. */
-export function ChipAtividade({ inscrito }: Props) {
+export function ChipAtividade({
+  inscrito,
+  opcoes = OPCOES_ATIVIDADE,
+}: Props & { opcoes?: OpcaoDeChip<AtividadeNoTemplo>[] }) {
   const valor = atividadeDaInscricao(inscrito);
   return (
     <ChipDeStatus
       key={String(valor)}
       rotuloDoCampo="Ordenança"
       valor={valor}
-      opcoes={OPCOES_ATIVIDADE}
+      opcoes={opcoes}
       aoMudar={async (atividade) => {
-        await definirAtividadeNoTemplo({ inscricaoId: inscrito.id, atividade });
+        const { acompanhadosDesfeitos } = await definirAtividadeNoTemplo({
+          inscricaoId: inscrito.id,
+          atividade,
+        });
+        if (acompanhadosDesfeitos.length > 0) {
+          toast.warning(
+            `${inscrito.membro.nomeCompleto} vai ficar nos jardins e deixou de ser acompanhante de ${acompanhadosDesfeitos.join(", ")}. Escolha outro acompanhante em Preparação.`,
+            { duration: 10000 },
+          );
+        }
       }}
     />
   );

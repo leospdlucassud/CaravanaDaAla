@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ArrowUp,
@@ -12,23 +12,35 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { promoverInscricao } from "@/app/acoes/inscricoes";
+import type { OpcaoDeChip } from "@/components/chip-de-status";
 import {
   ChipAgendamento,
   ChipAtividade,
   ChipRecomendacao,
   ChipsDaInscricao,
+  OPCOES_AGENDAMENTO,
+  OPCOES_ATIVIDADE,
+  OPCOES_ATIVIDADE_DEFINIDA,
+  OPCOES_RECOMENDACAO,
 } from "@/components/chips-da-inscricao";
 import { FormRecomendacaoDoMembro } from "@/components/form-recomendacao-membro";
 import type { InscritoSerializado } from "@/components/inscrito-serializado";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ROTULO_ORGANIZACAO_CURTO, ROTULO_RECOMENDACAO_TIPO } from "@/lib/dominio";
+import {
+  atividadeDaInscricao,
+  ROTULO_ORGANIZACAO_CURTO,
+  ROTULO_RECOMENDACAO_TIPO,
+} from "@/lib/dominio";
+import { mensagemDeFalha } from "@/lib/falha";
 import { formatarDinheiro } from "@/lib/financeiro";
 import { PENDENCIAS, type ChaveDePendencia, type ResumoDaCaravana } from "@/lib/resumo";
 import { cn } from "@/lib/utils";
@@ -38,9 +50,9 @@ import { cn } from "@/lib/utils";
  * número — e cada nome da lista abre, ali mesmo, o que resolve aquela
  * pendência.
  *
- * A lista é "congelada" ao abrir: quem é resolvido continua visível, com um ✓,
- * em vez de sumir e fazer a lista pular debaixo do dedo. O número do card e a
- * contagem do topo do diálogo se atualizam sozinhos.
+ * A lista é "congelada" ao abrir: quem é resolvido continua visível, com o
+ * desfecho ao lado, em vez de sumir e fazer a lista pular debaixo do dedo. O
+ * número do card e a contagem do topo do diálogo se atualizam sozinhos.
  */
 
 type ChaveDeLista = "inscritos" | ChaveDePendencia;
@@ -70,9 +82,105 @@ function pertenceAoCard(chave: ChaveDeLista, inscrito: InscritoSerializado): boo
     : PENDENCIAS[chave](inscrito);
 }
 
-const TEXTO_RESOLVIDO: Partial<Record<ChaveDeLista, string>> = {
-  fila: "Subiu para o ônibus",
+// --- Desfecho: o que aconteceu com quem saiu da pendência ---------------------
+
+type Tom = "ok" | "atencao" | "critico";
+type Desfecho = { texto: string; tom: Tom };
+
+function tomDaOpcao(tom: OpcaoDeChip<unknown>["tom"]): Tom {
+  if (tom === "critico") return "critico";
+  if (tom === "atencao") return "atencao";
+  return "ok";
+}
+
+/**
+ * Nulo enquanto a pessoa ainda tem a pendência do card. Depois, diz o que foi
+ * registrado — e com a cor certa: marcar a recomendação como "Vencida" tira a
+ * pessoa da lista "a conferir", mas não é notícia boa, e um ✓ verde ali
+ * enganaria.
+ */
+function desfechoDaLinha(
+  chave: ChaveDeLista,
+  inscrito: InscritoSerializado,
+): Desfecho | null {
+  if (chave === "inscritos" || pertenceAoCard(chave, inscrito)) return null;
+
+  if (chave === "fila") return { texto: "Subiu para o ônibus", tom: "ok" };
+
+  // Mexeram na pessoa por outro caminho enquanto o diálogo estava aberto.
+  if (inscrito.situacao === "FILA_ESPERA") {
+    return { texto: "Foi para a fila de espera", tom: "atencao" };
+  }
+  if (inscrito.participacao === "ACOMPANHANTE_JARDINS") {
+    return { texto: "Só acompanha (jardins)", tom: "ok" };
+  }
+
+  switch (chave) {
+    case "ordenanca": {
+      const atividade = atividadeDaInscricao(inscrito);
+      const opcao = OPCOES_ATIVIDADE.find((o) => o.valor === atividade);
+      return { texto: `Ordenança: ${opcao?.rotulo ?? "definida"}`, tom: "ok" };
+    }
+    case "recomendacao": {
+      const opcao = OPCOES_RECOMENDACAO.find(
+        (o) => o.valor === inscrito.recomendacaoStatus,
+      );
+      return {
+        texto: `Recomendação: ${opcao?.rotulo ?? "registrada"}`,
+        tom: tomDaOpcao(opcao?.tom),
+      };
+    }
+    case "agendamento": {
+      const opcao = OPCOES_AGENDAMENTO.find((o) => o.valor === inscrito.agendamentoStatus);
+      return {
+        texto: `Agendamento: ${opcao?.rotulo ?? "registrado"}`,
+        tom: tomDaOpcao(opcao?.tom),
+      };
+    }
+    case "atencao":
+      // Sem ordenança o aviso some, mas nada foi resolvido: a pessoa só mudou
+      // de quadrinho.
+      return PENDENCIAS.ordenanca(inscrito)
+        ? { texto: "Ficou sem ordenança", tom: "atencao" }
+        : { texto: "Resolvido", tom: "ok" };
+  }
+}
+
+const CLASSES_DO_TOM: Record<Tom, { bolinha: string; texto: string }> = {
+  ok: {
+    bolinha: "bg-emerald-600 text-white",
+    texto: "text-emerald-700 dark:text-emerald-400",
+  },
+  atencao: {
+    bolinha: "bg-amber-500 text-white",
+    texto: "text-amber-700 dark:text-amber-300",
+  },
+  critico: {
+    bolinha: "bg-red-600 text-white",
+    texto: "text-red-700 dark:text-red-300",
+  },
 };
+
+/** "Falta 1 de 5." / "Faltam 3 de 5." / "Tudo resolvido." */
+function textoDoAndamento(pendentes: number, comProblema: number, total: number) {
+  if (pendentes === 1) return `Falta 1 de ${total}.`;
+  if (pendentes > 1) return `Faltam ${pendentes} de ${total}.`;
+  if (comProblema === 0) return "Tudo resolvido.";
+  return comProblema === 1
+    ? "Tudo registrado, mas 1 pessoa ainda tem problema."
+    : `Tudo registrado, mas ${comProblema} pessoas ainda têm problema.`;
+}
+
+/** A fila não é tarefa a zerar: promover todo mundo lotaria o ônibus. */
+function textoDaFila(naFila: number, vagas: number) {
+  const fila =
+    naFila === 0
+      ? "Ninguém mais na fila"
+      : `${naFila} ${naFila === 1 ? "pessoa" : "pessoas"} na fila`;
+  const assentos =
+    vagas === 0 ? "ônibus lotado" : `${vagas} ${vagas === 1 ? "vaga livre" : "vagas livres"}`;
+  return `${fila} · ${assentos}.`;
+}
 
 const formatarData = (iso: string) =>
   new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(iso));
@@ -106,6 +214,9 @@ function MioloDoCard({ card, clicavel }: { card: Card; clicavel: boolean }) {
 }
 
 // --- O que resolve cada card -------------------------------------------------
+
+/** Botões do painel: largura toda no celular, e o texto quebra com letra grande. */
+const CLASSE_BOTAO_DO_PAINEL = "h-auto min-h-11 w-full whitespace-normal sm:w-auto";
 
 function LinkDaFicha({ membroId }: { membroId: string }) {
   return (
@@ -144,7 +255,7 @@ function PromoverDaFila({
         await promoverInscricao(inscrito.id);
         toast.success(`${inscrito.membro.nomeCompleto} subiu para o ônibus — avise!`);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Não foi possível promover.");
+        toast.error(mensagemDeFalha(e, "promover"));
       }
     });
   }
@@ -162,7 +273,7 @@ function PromoverDaFila({
           capacidade — faça isso só se houver lugar de fato.
         </p>
       )}
-      <Button onClick={promover} disabled={promovendo} className="min-h-11">
+      <Button onClick={promover} disabled={promovendo} className={CLASSE_BOTAO_DO_PAINEL}>
         <ArrowUp className="size-4" aria-hidden="true" />
         {promovendo ? "Promovendo..." : "Promover para o ônibus"}
       </Button>
@@ -245,7 +356,7 @@ function PainelDeResolucao({
               Se a ordenança não combina com a recomendação, troque aqui — ou
               marque &quot;Só acompanha (jardins)&quot;.
             </Dica>
-            <ChipAtividade inscrito={inscrito} />
+            <ChipAtividade inscrito={inscrito} opcoes={OPCOES_ATIVIDADE_DEFINIDA} />
           </div>
           <FormRecomendacaoDoMembro
             key={`${membro.recomendacaoTipo}-${membro.recomendacaoValidaAte ?? ""}`}
@@ -265,6 +376,7 @@ function PainelDeResolucao({
 function LinhaDoDialogo({
   chave,
   id,
+  nomeAoAbrir,
   inscrito,
   expandida,
   aoAlternar,
@@ -273,29 +385,40 @@ function LinhaDoDialogo({
 }: {
   chave: ChaveDeLista;
   id: string;
+  /** O nome de quando o diálogo abriu — para dizer quem saiu da lista. */
+  nomeAoAbrir: string;
   inscrito: InscritoSerializado | undefined;
   expandida: boolean;
   aoAlternar: () => void;
   vagasRestantes: number;
   capacidade: number;
 }) {
+  const linha = useRef<HTMLLIElement>(null);
+
+  // O painel abre embaixo do nome. Num nome no pé da lista, ele nasceria fora
+  // da tela e o toque pareceria não ter feito nada.
+  useEffect(() => {
+    if (expandida) linha.current?.scrollIntoView({ block: "nearest" });
+  }, [expandida]);
+
   // Saiu da caravana (desistência ou remoção) enquanto o diálogo estava aberto.
   if (!inscrito) {
     return (
-      <li className="text-muted-foreground px-2 py-3 text-sm">
-        Esta pessoa saiu da lista (desistência ou remoção).
+      <li ref={linha} className="text-muted-foreground px-2 py-3 text-sm">
+        {nomeAoAbrir} saiu da lista (desistência ou remoção).
       </li>
     );
   }
 
-  const resolvido = chave !== "inscritos" && !pertenceAoCard(chave, inscrito);
+  const desfecho = desfechoDaLinha(chave, inscrito);
   const numero =
     inscrito.situacao === "FILA_ESPERA" ? inscrito.posicaoFila : inscrito.ordem;
   const idDoPainel = `resolver-${id}`;
   const avisosVisiveis = chave === "atencao" ? inscrito.avisos : [];
+  const classesDoTom = desfecho ? CLASSES_DO_TOM[desfecho.tom] : null;
 
   return (
-    <li className="py-1">
+    <li ref={linha} className="py-1">
       <button
         type="button"
         onClick={aoAlternar}
@@ -306,17 +429,21 @@ function LinhaDoDialogo({
         <span
           className={cn(
             "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium tabular-nums",
-            resolvido
-              ? "bg-emerald-600 text-white"
-              : "bg-muted text-muted-foreground",
+            classesDoTom ? classesDoTom.bolinha : "bg-muted text-muted-foreground",
           )}
           aria-hidden="true"
         >
-          {resolvido ? <CheckCircle2 className="size-4" /> : numero}
+          {!desfecho ? (
+            numero
+          ) : desfecho.tom === "ok" ? (
+            <CheckCircle2 className="size-4" />
+          ) : (
+            <TriangleAlert className="size-4" />
+          )}
         </span>
 
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">
+          <span className="block font-medium break-words">
             {inscrito.membro.nomeCompleto}
             {inscrito.membro.apelido ? (
               <span className="text-muted-foreground font-normal">
@@ -331,9 +458,9 @@ function LinhaDoDialogo({
               : "Sem organização"}
             {inscrito.membro.ehDeOutraUnidade ? ` · ${inscrito.membro.unidadeNome}` : ""}
           </span>
-          {resolvido ? (
-            <span className="block text-xs font-medium text-emerald-700 dark:text-emerald-400">
-              {TEXTO_RESOLVIDO[chave] ?? "Resolvido"}
+          {desfecho && classesDoTom ? (
+            <span className={cn("block text-xs font-medium", classesDoTom.texto)}>
+              {desfecho.texto}
             </span>
           ) : null}
         </span>
@@ -346,7 +473,7 @@ function LinhaDoDialogo({
       </button>
 
       {avisosVisiveis.length > 0 ? (
-        <ul className="mt-0.5 mb-1 space-y-0.5 pl-12">
+        <ul className="mt-0.5 mb-1 space-y-0.5 pl-2 sm:pl-12">
           {avisosVisiveis.map((aviso) => (
             <li
               key={aviso.codigo}
@@ -365,7 +492,7 @@ function LinhaDoDialogo({
       ) : null}
 
       {expandida ? (
-        <div id={idDoPainel} className="space-y-3 pt-1 pr-2 pb-3 pl-12">
+        <div id={idDoPainel} className="space-y-3 pt-1 pr-2 pb-3 pl-2 sm:pl-12">
           <PainelDeResolucao
             chave={chave}
             inscrito={inscrito}
@@ -380,6 +507,13 @@ function LinhaDoDialogo({
 
 // --- Cards + diálogo ---------------------------------------------------------
 
+type CardAberto = {
+  chave: ChaveDeLista;
+  /** Quem o card mostrava na hora de abrir — a lista fica congelada. */
+  ids: string[];
+  nomes: Record<string, string>;
+};
+
 export function ContadoresDaCaravana({
   caravanaId,
   resumo,
@@ -391,11 +525,12 @@ export function ContadoresDaCaravana({
   confirmados: InscritoSerializado[];
   naFila: InscritoSerializado[];
 }) {
-  // Card aberto e os ids que ele mostrava na hora — a lista fica congelada.
-  const [aberto, setAberto] = useState<{ chave: ChaveDeLista; ids: string[] } | null>(
-    null,
-  );
+  const [aberto, setAberto] = useState<CardAberto | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
+  // Ao fechar, o foco volta ao card que abriu o diálogo (ou à grade, se o card
+  // deixou de ser clicável porque não sobrou ninguém nele).
+  const cardQueAbriu = useRef<HTMLButtonElement | null>(null);
+  const grade = useRef<HTMLDivElement>(null);
 
   const todos = useMemo(() => [...confirmados, ...naFila], [confirmados, naFila]);
   const porId = useMemo(() => new Map(todos.map((i) => [i.id, i])), [todos]);
@@ -476,11 +611,16 @@ export function ContadoresDaCaravana({
     [caravanaId, resumo],
   );
 
-  function abrir(chave: ChaveDeLista) {
-    const ids = todos.filter((i) => pertenceAoCard(chave, i)).map((i) => i.id);
-    setAberto({ chave, ids });
+  function abrir(chave: ChaveDeLista, botao: HTMLButtonElement) {
+    const doCard = todos.filter((i) => pertenceAoCard(chave, i));
+    cardQueAbriu.current = botao;
+    setAberto({
+      chave,
+      ids: doCard.map((i) => i.id),
+      nomes: Object.fromEntries(doCard.map((i) => [i.id, i.membro.nomeCompleto])),
+    });
     // Uma pessoa só: já abre o que resolve, sem toque extra.
-    setExpandida(ids.length === 1 ? ids[0] : null);
+    setExpandida(doCard.length === 1 ? doCard[0].id : null);
   }
 
   function fechar() {
@@ -492,17 +632,31 @@ export function ContadoresDaCaravana({
     ? cards.find((c): c is CardLista => c.tipo === "lista" && c.chave === aberto.chave)
     : undefined;
 
-  const pendentesAgora =
-    aberto && aberto.chave !== "inscritos"
-      ? aberto.ids.filter((id) => {
-          const inscrito = porId.get(id);
-          return inscrito ? pertenceAoCard(aberto.chave, inscrito) : false;
-        }).length
-      : null;
+  let andamento: string | null = null;
+  if (aberto?.chave === "fila") {
+    andamento = textoDaFila(resumo.naFila, resumo.vagasRestantes);
+  } else if (aberto && aberto.chave !== "inscritos") {
+    let pendentes = 0;
+    let comProblema = 0;
+    for (const id of aberto.ids) {
+      const inscrito = porId.get(id);
+      if (!inscrito) continue;
+      const desfecho = desfechoDaLinha(aberto.chave, inscrito);
+      if (!desfecho) pendentes++;
+      else if (desfecho.tom !== "ok") comProblema++;
+    }
+    andamento = textoDoAndamento(pendentes, comProblema, aberto.ids.length);
+  }
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div
+        ref={grade}
+        tabIndex={-1}
+        role="group"
+        aria-label="Resumo da caravana"
+        className="grid grid-cols-2 gap-3 outline-none lg:grid-cols-4"
+      >
         {cards.map((card) => {
           const classeCard = "bg-card rounded-xl border transition-colors";
 
@@ -536,7 +690,8 @@ export function ContadoresDaCaravana({
             <button
               key={card.chave}
               type="button"
-              onClick={() => abrir(card.chave)}
+              aria-haspopup="dialog"
+              onClick={(evento) => abrir(card.chave, evento.currentTarget)}
               className={cn(
                 classeCard,
                 "hover:border-primary/50 focus-visible:ring-ring w-full focus-visible:ring-2 focus-visible:outline-none",
@@ -554,23 +709,28 @@ export function ContadoresDaCaravana({
           if (!estaAberto) fechar();
         }}
       >
-        <DialogContent className="flex max-h-[85vh] flex-col gap-3 sm:max-w-lg">
+        <DialogContent
+          className="flex max-h-[85vh] flex-col gap-3 sm:max-w-lg"
+          onCloseAutoFocus={(evento) => {
+            evento.preventDefault();
+            const alvo = cardQueAbriu.current;
+            (alvo?.isConnected ? alvo : grade.current)?.focus();
+          }}
+        >
           {cardAberto && aberto ? (
             <>
-              <DialogHeader>
+              <DialogHeader className="pr-8">
                 <DialogTitle>
                   {cardAberto.rotulo} ({aberto.ids.length})
                 </DialogTitle>
                 <DialogDescription>
                   {cardAberto.descricao}
-                  {pendentesAgora !== null ? (
+                  {andamento !== null ? (
                     <span
                       className="text-foreground mt-1 block font-medium"
                       aria-live="polite"
                     >
-                      {pendentesAgora === 0
-                        ? "Tudo resolvido."
-                        : `Faltam ${pendentesAgora} de ${aberto.ids.length}.`}
+                      {andamento}
                     </span>
                   ) : null}
                 </DialogDescription>
@@ -582,6 +742,7 @@ export function ContadoresDaCaravana({
                     key={id}
                     chave={aberto.chave}
                     id={id}
+                    nomeAoAbrir={aberto.nomes[id] ?? "Esta pessoa"}
                     inscrito={porId.get(id)}
                     expandida={expandida === id}
                     aoAlternar={() => setExpandida((atual) => (atual === id ? null : id))}
@@ -590,6 +751,14 @@ export function ContadoresDaCaravana({
                   />
                 ))}
               </ul>
+
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" className="min-h-11 w-full sm:w-auto">
+                    Fechar
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
             </>
           ) : null}
         </DialogContent>

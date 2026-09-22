@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ROTULO_ORGANIZACAO_CURTO } from "@/lib/dominio";
 import { normalizarNome } from "@/lib/normalizar";
 import type { Organizacao } from "@/generated/prisma/enums";
+import { mensagemDeFalha } from "@/lib/falha";
 
 export type CandidatoAInscricao = {
   id: string;
@@ -64,9 +65,7 @@ export function InscreverMembros({
 
         router.refresh();
       } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Não foi possível inscrever.",
-        );
+        toast.error(mensagemDeFalha(e, "inscrever"));
       }
     });
   }
